@@ -3,6 +3,15 @@ import { createHash, webcrypto } from 'node:crypto';
 export const categoryIds = ['primary', 'transactions', 'updates', 'promotions'];
 const failure = code => Object.assign(new Error(code), { code });
 
+export function isLocalLlmHost(hostname) {
+  if (['localhost', '127.0.0.1', '[::1]', 'host.docker.internal'].includes(hostname)) return true;
+  const parts = hostname.split('.').map(Number);
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname) && parts.length === 4 && parts.every(part => Number.isInteger(part) && part >= 0 && part <= 255)) {
+    return parts[0] === 10 || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) || (parts[0] === 192 && parts[1] === 168);
+  }
+  return /^\[f[cd][0-9a-f]{2}:/i.test(hostname);
+}
+
 export async function classificationProfile(sql, config, owner) {
   const [state] = await sql`SELECT profiles,active_id FROM mail0_user_llm_settings WHERE user_id=${owner}`;
   const active = state ? state.active_id : config.OPENAI_API_KEY?.trim() ? 'environment' : null;
@@ -24,8 +33,12 @@ export async function classificationProfile(sql, config, owner) {
   let url;
   try { url = new URL(profile.baseUrl.trim()); } catch { throw failure('CONFIGURATION'); }
   if (url.username || url.password || url.hash || url.search ||
-      (url.protocol !== 'https:' && !(config.SELF_HOSTED === 'true' && url.protocol === 'http:' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname))) ||
+      (url.protocol !== 'https:' && !(config.SELF_HOSTED === 'true' && url.protocol === 'http:' && isLocalLlmHost(url.hostname))) ||
       ['169.254.169.254','metadata.google.internal','0.0.0.0','[::]'].includes(url.hostname) || !profile.model) throw failure('CONFIGURATION');
+  if (config.SELF_HOSTED === 'true' && config.LLM_LOOPBACK_HOST && url.protocol === 'http:' && ['localhost','127.0.0.1','[::1]'].includes(url.hostname)) {
+    if (!/^[a-zA-Z0-9.-]+$/.test(config.LLM_LOOPBACK_HOST)) throw failure('CONFIGURATION');
+    url.hostname = config.LLM_LOOPBACK_HOST;
+  }
   return { ...profile, baseUrl: url.href.replace(/\/+$/, '') };
 }
 

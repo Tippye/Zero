@@ -1,7 +1,7 @@
 {
   "name": "zero-desktop",
   "productName": "Zero Mail",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "An open, self-hosted email client",
   "author": "Zero contributors",
   "license": "MIT",

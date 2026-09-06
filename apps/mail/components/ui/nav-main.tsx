@@ -1,4 +1,4 @@
-import { MailSyncStatus } from '@/components/mail/sync-status';
+import { NavUser } from './nav-user';
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from './sidebar';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useCommandPalette } from '../context/command-palette-context.jsx';
@@ -192,7 +192,6 @@ export function NavMain({ items }: NavMainProps) {
       <SidebarMenu>
         {isBottomNav ? (
           <>
-            <div className={state === 'collapsed' ? 'hidden' : 'mb-2'}><MailSyncStatus /></div>
             <SidebarMenuButton
               onClick={() => show()}
               tooltip={state === 'collapsed' ? m['common.commandPalette.groups.help']() : undefined}
@@ -230,14 +229,25 @@ export function NavMain({ items }: NavMainProps) {
               )}
               <CollapsibleContent className="z-20 space-y-1 pb-2">
                 {section.items.map((item) => (
-                  <NavItem
+                  <div
                     key={item.url}
-                    {...item}
-                    isActive={isUrlActive(item.url)}
-                    href={getHref(item)}
-                    target={item.target}
-                    title={item.title}
-                  />
+                    className={cn(
+                      'flex items-center gap-1',
+                      item.isSettingsButton && state === 'collapsed' &&
+                        '-mx-2 gap-0 [&_[data-sidebar=menu-button]]:w-6! [&_[data-sidebar=menu-button]]:px-1!',
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <NavItem
+                        {...item}
+                        isActive={isUrlActive(item.url)}
+                        href={getHref(item)}
+                        target={item.target}
+                        title={item.title}
+                      />
+                    </div>
+                    {item.isSettingsButton && <NavUser />}
+                  </div>
                 ))}
               </CollapsibleContent>
             </SidebarMenuItem>

@@ -5,6 +5,7 @@ import { env } from '../env';
 import { TRPCError } from '@trpc/server';
 import { getContext } from 'hono/context-storage';
 import type { HonoContext } from '../ctx';
+import { isLocalLlmHost } from './llm-http';
 
 export type LlmProfile = { id: string; name: string; baseUrl: string; model: string; miniModel: string; embeddingModel: string; encryptedKey: string };
 export type LlmState = { profiles: LlmProfile[]; activeId: string | null };
@@ -14,7 +15,7 @@ export const missingLlm = () => new TRPCError({ code: 'PRECONDITION_FAILED', mes
 export function normalizeLlmUrl(value: string) {
   let url: URL;
   try { url = new URL(value.trim()); } catch { throw new TRPCError({ code: 'BAD_REQUEST', message: 'LLM_INVALID_URL' }); }
-  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const local = isLocalLlmHost(url.hostname);
   if (url.username || url.password || url.search || url.hash ||
       (url.protocol !== 'https:' && !(env.SELF_HOSTED === 'true' && local && url.protocol === 'http:')) ||
       ['169.254.169.254', 'metadata.google.internal', '0.0.0.0', '[::]'].includes(url.hostname)) {

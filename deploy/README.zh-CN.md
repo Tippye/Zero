@@ -1,10 +1,12 @@
 # Docker Compose 自托管
 
+[中文首页](../README.zh-CN.md) · [1.0.0 更新说明](../CHANGELOG.zh-CN.md) · [Windows 客户端](../native/desktop/README.zh-CN.md)
+
 本部署将 API、后台邮件同步、IMAP/SMTP 桥接、PostgreSQL、Valkey、Redis HTTP 适配器和 Web 入口放在同一个 Compose 项目中。不需要 Cloudflare 账号，不启动 `wrangler dev`。API 使用固定版本 Miniflare 管理 workerd 及本地 Workers 绑定；这是单机、单实例部署，不等同于 Cloudflare 的多区域托管平台。不要给 API、同步任务或桥接直接增加副本。
 
 ## 启动
 
-需要 Docker Engine 和 Compose v2.20+，以及用于首次生成配置的 Node.js 22+。在仓库根目录：
+需要 Docker Engine 和 Compose v2.20+，以及用于首次生成配置的 Node.js 22.12+。在仓库根目录：
 
 ```sh
 node deploy/init.mjs http://localhost:8080
@@ -72,7 +74,25 @@ docker compose --env-file deploy/.env stop
 docker compose --env-file deploy/.env ps
 ```
 
+如果实例同时使用 HTTPS、额外的 Compose 文件或自定义项目名，升级时沿用相同的 `-f`、`-p` 和环境文件参数。例如双协议实例：
+
+```sh
+docker compose --env-file deploy/.env -f compose.yaml -f deploy/compose.https.yaml up -d --build
+```
+
+邮件界面和 LLM 设置由这里的 Web/API 服务提供。只重打包 Windows 客户端不会更新这些页面；服务端升级后，刷新网页或在客户端按 `Ctrl+R`。桌面标题栏和系统集成的更新则需要安装新的客户端。
+
 不要用 down -v 做日常升级。数据库迁移以事务执行并记录版本，初始化由数据库锁串行保护；迁移失败时 API 不会启动。初次部署支持空数据库，直接迁移旧的非标准 db:push 数据库前应先在备份副本上核对迁移历史。
+
+## 本机 LLM 服务
+
+在「设置 → LLM 服务商」填写 OpenAI 兼容的 API 基础地址（例如 `http://localhost:20128/v1`）。Compose 默认通过 `LLM_LOOPBACK_HOST=host.docker.internal` 将本机 HTTP 地址转向 Docker 宿主机，模型列表、测试消息、邮件 AI 和后台分类共用此映射。保存的地址和密钥无需修改。
+
+服务商配置卡片和编辑表单均有「测试模型」按钮，发送一条简短消息并显示结果及耗时；编辑表单可在保存前测试。测试不使用邮件内容。
+
+自托管环境也支持直接填写 `http://host.docker.internal:20128/v1` 或局域网 HTTP 地址，例如 `http://192.168.1.20:8080/v1`。局域网范围包括 `10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` 和 IPv6 ULA；这些地址保持原样连接。
+
+若模型服务实际运行在 API 容器内，可在 `deploy/.env` 中设置空的 `LLM_LOOPBACK_HOST=` 关闭映射。Linux Docker 若无法解析 `host.docker.internal`，可为 `api` 和 `mail-sync` 增加 `extra_hosts: ['host.docker.internal:host-gateway']`。远程部署的 Zero 需要可从服务器访问的模型地址；这里的 localhost 不指向远程使用者的电脑。
 
 ## 通知
 

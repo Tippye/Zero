@@ -1,4 +1,4 @@
-> Docker Compose 完整部署与 Windows 客户端请从 [部署文档](deploy/README.zh-CN.md) 开始；本文保留原有本机开发部署方式。
+> 当前 1.0.0 使用说明请见[中文首页](README.zh-CN.md)和[Docker Compose 部署文档](deploy/README.zh-CN.md)。本文保留早期开发阶段记录，其中的功能清单、入口和认证方式不代表当前 1.0.0 版本。
 
 # 本机自托管模式
 

@@ -76,3 +76,11 @@ test('discards classification when learning is switched off during the model req
   });
   assert.equal(written, false);
 });
+
+test('Docker classification uses the same host mapping as interactive LLM requests', async () => {
+  const { classificationProfile } = await import('../src/classify.mjs');
+  const config = { SELF_HOSTED: 'true', LLM_LOOPBACK_HOST: 'host.docker.internal', OPENAI_BASE_URL: 'http://localhost:20128/v1', OPENAI_API_KEY: 'synthetic-key', OPENAI_MODEL: 'synthetic-mini' };
+  const sql = async () => [];
+  assert.equal((await classificationProfile(sql, config, 'owner')).baseUrl, 'http://host.docker.internal:20128/v1');
+  assert.equal((await classificationProfile(sql, { ...config, LLM_LOOPBACK_HOST: '' }, 'owner')).baseUrl, 'http://localhost:20128/v1');
+});

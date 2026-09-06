@@ -1,0 +1,78 @@
+:root {
+  color-scheme: light dark;
+  --chrome-bg: #fafafa;
+  --chrome-text: #242424;
+  --chrome-hover: #eeeeee;
+  --chrome-border: #eaeaea;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chrome-bg: #141414;
+    --chrome-text: #ececec;
+    --chrome-hover: #262626;
+    --chrome-border: #262626;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+}
+.titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 148px 0 12px;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
+  user-select: none;
+  -webkit-app-region: drag;
+}
+.app-menu {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font:
+    600 13px 'Segoe UI Variable',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.app-menu:hover,
+.app-menu[aria-expanded='true'] {
+  background: var(--chrome-hover);
+}
+.app-menu:focus-visible {
+  outline: 2px solid #006ffe;
+  outline-offset: -2px;
+}
+.brand-icon {
+  width: 21px;
+  height: 21px;
+}
+.chevron {
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  opacity: 0.55;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-menu {
+    transition: none;
+  }
+}

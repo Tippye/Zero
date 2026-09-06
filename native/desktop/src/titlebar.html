@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'"
+    />
+    <title>Zero Mail</title>
+    <link rel="stylesheet" href="titlebar.css" />
+  </head>
+  <body>
+    <header class="titlebar">
+      <button
+        id="app-menu"
+        class="app-menu"
+        aria-label="Zero Mail 菜单"
+        aria-haspopup="menu"
+        aria-expanded="false"
+      >
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect
+            x="3.5"
+            y="5.5"
+            width="17"
+            height="13"
+            rx="4"
+            stroke="currentColor"
+            stroke-width="1.6"
+          />
+          <path
+            d="m5 8 5.3 4.1a2.8 2.8 0 0 0 3.4 0L19 8"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span>Zero Mail</span>
+        <svg class="chevron" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path
+            d="m5 6.5 3 3 3-3"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+    </header>
+    <script src="titlebar.js"></script>
+  </body>
+</html>

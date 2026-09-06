@@ -12,6 +12,7 @@ const {
 } = require('electron');
 const { readFile, writeFile, mkdir, rename, appendFile } = require('node:fs/promises');
 const { NotificationFeed } = require('./notifications.cjs');
+const { createMailWindow } = require('./mail-window.cjs');
 const { join, normalize } = require('node:path');
 const { createHash } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
@@ -43,6 +44,8 @@ if (!locked) {
   app.quit();
 } else {
   let mainWindow,
+    mailContents,
+    applicationMenu,
     settingsWindow,
     tray,
     profile,
@@ -72,11 +75,12 @@ if (!locked) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
+      mailContents?.focus();
     }
   }
   function navigate(path) {
     if (!mainWindow || !config.server) return;
-    void mainWindow.loadURL(config.server + path).catch(() => {});
+    void mailContents.loadURL(config.server + path).catch(() => {});
     focus();
   }
   async function openLink(raw) {
@@ -142,31 +146,81 @@ if (!locked) {
       { type: 'separator' },
       { label: '退出 / Quit', click: () => app.quit() },
     ];
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        { label: 'Zero Mail', submenu: entries },
-        {
-          label: '编辑 / Edit',
-          submenu: [
-            { role: 'undo' },
-            { role: 'redo' },
-            { role: 'cut' },
-            { role: 'copy' },
-            { role: 'paste' },
-            { role: 'selectAll' },
-          ],
-        },
-        {
-          label: '视图 / View',
-          submenu: [
-            { role: 'reload' },
-            { role: 'resetZoom' },
-            { role: 'zoomIn' },
-            { role: 'zoomOut' },
-          ],
-        },
-      ]),
-    );
+    applicationMenu = Menu.buildFromTemplate([
+      ...entries.slice(0, -2),
+      { type: 'separator' },
+      {
+        label: '编辑 / Edit',
+        submenu: [
+          {
+            label: '撤销',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.undo();
+            },
+          },
+          {
+            label: '重做',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.redo();
+            },
+          },
+          {
+            label: '剪切',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.cut();
+            },
+          },
+          {
+            label: '复制',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.copy();
+            },
+          },
+          {
+            label: '粘贴',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.paste();
+            },
+          },
+          {
+            label: '全选',
+            click: () => {
+              mailContents?.focus();
+              mailContents?.selectAll();
+            },
+          },
+        ],
+      },
+      {
+        label: '视图 / View',
+        submenu: [
+          { label: '刷新', accelerator: 'CmdOrCtrl+R', click: () => mailContents?.reload() },
+          {
+            label: '实际大小',
+            accelerator: 'CmdOrCtrl+0',
+            click: () => mailContents?.setZoomLevel(0),
+          },
+          {
+            label: '放大',
+            accelerator: 'CmdOrCtrl+Plus',
+            click: () => mailContents?.setZoomLevel(Math.min(5, mailContents.getZoomLevel() + 1)),
+          },
+          {
+            label: '缩小',
+            accelerator: 'CmdOrCtrl+-',
+            click: () => mailContents?.setZoomLevel(Math.max(-5, mailContents.getZoomLevel() - 1)),
+          },
+        ],
+      },
+      { type: 'separator' },
+      entries.at(-1),
+    ]);
+    Menu.setApplicationMenu(null);
     if (!tray) {
       tray = new Tray(icon);
       tray.setToolTip('Zero Mail');
@@ -184,26 +238,31 @@ if (!locked) {
     activeSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
     activeSession.setPermissionCheckHandler(() => false);
     if (mainWindow) {
-      mainWindow.removeAllListeners('close');
-      mainWindow.removeAllListeners('closed');
-      mainWindow.destroy();
+      const previousWindow = mainWindow;
+      mainWindow = null;
+      previousWindow.removeAllListeners('close');
+      previousWindow.destroy();
     }
-    mainWindow = new BrowserWindow({
-      width: 1280,
-      height: 850,
-      minWidth: 800,
-      minHeight: 600,
-      title: 'Zero Mail',
+    ({ window: mainWindow, contents: mailContents } = createMailWindow({
       icon,
-      webPreferences: {
-        session: activeSession,
-        nodeIntegration: false,
-        contextIsolation: true,
-        sandbox: true,
-        webSecurity: true,
-        backgroundThrottling: false,
-      },
-    });
+      session: activeSession,
+    }));
+    const window = mainWindow;
+    const contents = mailContents;
+    const shortcuts = (event, input) => {
+      if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return;
+      const key = input.key.toLowerCase();
+      if (key === 'n') navigate('/mail/compose');
+      else if (key === 'r') contents.reload();
+      else if (key === '0') contents.setZoomLevel(0);
+      else if (key === '+' || key === '=')
+        contents.setZoomLevel(Math.min(5, contents.getZoomLevel() + 1));
+      else if (key === '-') contents.setZoomLevel(Math.max(-5, contents.getZoomLevel() - 1));
+      else return;
+      event.preventDefault();
+    };
+    contents.on('before-input-event', shortcuts);
+    window.webContents.on('before-input-event', shortcuts);
     const handleNavigation = (event, url) => {
       const parsed = new URL(url);
       if (parsed.origin === config.server) return;
@@ -211,15 +270,16 @@ if (!locked) {
       if (['mailto:', 'zeromail:'].includes(parsed.protocol)) void openLink(url);
       else if (['http:', 'https:'].includes(parsed.protocol)) void shell.openExternal(url);
     };
-    mainWindow.webContents.on('will-navigate', handleNavigation);
-    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    mailContents.on('will-navigate', handleNavigation);
+    mailContents.setWindowOpenHandler(({ url }) => {
       handleNavigation({ preventDefault() {} }, url);
       if (new URL(url).origin === config.server)
         navigate(new URL(url).pathname + new URL(url).search);
       return { action: 'deny' };
     });
-    mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
-    mainWindow.webContents.on('will-prevent-unload', (event) => {
+    mailContents.on('will-attach-webview', (event) => event.preventDefault());
+    mailContents.on('will-prevent-unload', (event) => {
+      record('unsaved-message-prompt');
       const choice = dialog.showMessageBoxSync(mainWindow, {
         type: 'question',
         message: '当前邮件有编辑内容，是否离开？ / Leave this edited message?',
@@ -230,17 +290,35 @@ if (!locked) {
       if (choice === 1) event.preventDefault();
     });
     mainWindow.on('close', (event) => {
+      record('window-close', { quitting, closeToTray: config.closeToTray });
       if (!quitting && config.closeToTray) {
         event.preventDefault();
         mainWindow.hide();
+      } else if (!contents.isDestroyed()) {
+        event.preventDefault();
+        setImmediate(() => {
+          if (contents.isDestroyed()) return;
+          // Finish the page's beforeunload flow before disposing the containing window.
+          void contents
+            .loadURL('about:blank')
+            .then(() => {
+              if (!window.isDestroyed()) window.destroy();
+            })
+            .catch(() => {
+              // A cancelled beforeunload keeps the mail window open.
+              quitting = false;
+            });
+        });
       }
     });
     mainWindow.on('closed', () => {
+      record('window-closed');
+      if (mainWindow !== window) return;
       mainWindow = null;
-      if (!config.closeToTray) app.quit();
+      if (quitting || !config.closeToTray) setImmediate(() => app.quit());
     });
-    mainWindow.webContents.on('did-finish-load', () =>
-      record('page-loaded', { path: new URL(mainWindow.webContents.getURL()).pathname }),
+    mailContents.on('did-finish-load', () =>
+      record('page-loaded', { path: new URL(mailContents.getURL()).pathname }),
     );
     const stateFile = join(app.getPath('userData'), `notifications-${profile}.json`);
     let state = {};
@@ -282,7 +360,7 @@ if (!locked) {
     });
     const currentFeed = feed;
     polling = setInterval(() => void currentFeed.poll().catch(() => {}), 15000);
-    await mainWindow.loadURL(config.server + '/mail/inbox').catch(() => {
+    await mailContents.loadURL(config.server + '/mail/inbox').catch(() => {
       dialog.showMessageBox(mainWindow, {
         type: 'warning',
         message: '无法连接邮件服务器。可从菜单重新连接或修改服务器地址。 / Server unavailable.',
@@ -316,6 +394,19 @@ if (!locked) {
     });
     void settingsWindow.loadFile(join(__dirname, 'settings.html'));
   }
+  ipcMain.handle('zero:titlebar-menu', (event) => {
+    if (
+      !mainWindow ||
+      event.sender !== mainWindow.webContents ||
+      event.senderFrame !== mainWindow.webContents.mainFrame ||
+      event.senderFrame.url !== pathToFileURL(join(__dirname, 'titlebar.html')).href
+    ) {
+      throw new Error('Invalid titlebar request');
+    }
+    return new Promise((resolve) =>
+      applicationMenu.popup({ window: mainWindow, x: 12, y: 42, callback: resolve }),
+    );
+  });
   function trusted(event) {
     return (
       settingsWindow &&
@@ -375,7 +466,6 @@ if (!locked) {
   });
   app.on('before-quit', () => {
     quitting = true;
-    clearInterval(polling);
   });
   app.on('window-all-closed', () => {
     if (!config.closeToTray) app.quit();

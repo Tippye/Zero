@@ -1,4 +1,6 @@
-> **Self-hosted Docker + Windows:** See [Docker Compose setup (中文)](deploy/README.zh-CN.md), [Windows client](native/desktop/README.zh-CN.md), and [local validation](deploy/VALIDATION.zh-CN.md).
+> **Windows 1.0.0 — first usable release:** [中文文档](README.zh-CN.md) · [Release notes (中文)](CHANGELOG.zh-CN.md) · [Docker Compose setup (中文)](deploy/README.zh-CN.md) · [Windows client (中文)](native/desktop/README.zh-CN.md) · [Validation record (中文)](deploy/VALIDATION.zh-CN.md).
+>
+> The Windows app connects to your Zero server. Mail UI and LLM changes require a server rebuild and page reload; desktop titlebar and integration changes require a new installer.
 
 <p align="center">
   <picture>
@@ -32,13 +34,27 @@ Most email services today are either **closed-source**, **data-hungry**, or **to
 
 Zero is built with modern and reliable technologies:
 
-- **Frontend**: Next.js, React, TypeScript, TailwindCSS, Shadcn UI
-- **Backend**: Node.js, Drizzle ORM
+- **Frontend**: React, React Router, Vite, TypeScript, TailwindCSS, Shadcn UI
+- **Backend**: Hono, tRPC, Drizzle ORM, Workers runtime; Miniflare/workerd for Docker self-hosting
 - **Database**: PostgreSQL
-- **Authentication**: Better Auth, Google OAuth
+- **Authentication**: Better Auth; shared server login for Docker deployments, optional Google OAuth for mailbox connections
 <!-- - **Testing**: Jest, React Testing Library -->
 
 ## Getting Started
+
+### Docker + Windows quick start
+
+For the current self-hosted release, run these commands from the repository root:
+
+```sh
+node deploy/init.mjs http://localhost:8080
+# Edit deploy/.env: set ADMIN_EMAIL and an ADMIN_PASSWORD of at least 12 characters.
+docker compose --env-file deploy/.env up -d --build
+```
+
+Open the configured server URL, sign in, and add your mailboxes from Settings. LLM configuration is optional for ordinary email use. See the [deployment guide](deploy/README.zh-CN.md) for LAN access, HTTPS and upgrades. Existing deployments should preserve their configuration and data volumes instead of rerunning initialization.
+
+The development workflows below are separate from this Compose deployment.
 
 ### Video Tutorial
 
@@ -54,7 +70,7 @@ Watch this helpful video tutorial on how to set up Zero locally:
 
 **Required Versions:**
 
-- [Node.js](https://nodejs.org/en/download) (v18 or higher)
+- [Node.js](https://nodejs.org/en/download) (v22.12 or higher)
 - [pnpm](https://pnpm.io) (v10 or higher)
 - [Docker](https://docs.docker.com/engine/install/) (v20 or higher)
 
@@ -84,7 +100,6 @@ You can set up Zero in two ways:
    ```
 
 2. **Set Up Environment**
-
    - Run `pnpm nizzy env` to setup your environment variables
    - Run `pnpm nizzy sync` to sync your environment variables and types
    - Start the database with the provided docker compose setup: `pnpm docker:db:up`
@@ -124,7 +139,6 @@ You can set up Zero in two ways:
    ```
 
 2. **Set Up Environment**
-
    - Run `pnpm nizzy env` to setup your environment variables
    - Run `pnpm nizzy sync` to sync your environment variables and types
    - Start the database with the provided docker compose setup: `pnpm docker:db:up`
@@ -140,7 +154,6 @@ You can set up Zero in two ways:
 ### Environment Setup
 
 1. **Better Auth Setup**
-
    - Open the `.env` file and change the BETTER_AUTH_SECRET to a random string. (Use `openssl rand -hex 32` to generate a 32 character string)
 
      ```env
@@ -148,7 +161,6 @@ You can set up Zero in two ways:
      ```
 
 2. **Google OAuth Setup** (Required for Gmail integration)
-
    - Go to [Google Cloud Console](https://console.cloud.google.com)
    - Create a new project
    - Add the following APIs in your Google Cloud Project: [People API](https://console.cloud.google.com/apis/library/people.googleapis.com), [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com)
@@ -170,7 +182,6 @@ You can set up Zero in two ways:
      ```
 
    - Add yourself as a test user:
-
      - Go to [`Audience`](https://console.cloud.google.com/auth/audience)
      - Under 'Test users' click 'Add Users'
      - Add your email and click 'Save'
@@ -179,7 +190,6 @@ You can set up Zero in two ways:
 > The authorized redirect URIs in Google Cloud Console must match **exactly** what you configure in the `.env`, including the protocol (http/https), domain, and path - these are provided above.
 
 3. **Autumn Setup** (Required for some encryption)
-
    - Go to [Autumn](https://useautumn.com/)
    - For Local Use, click [onboarding](https://app.useautumn.com/sandbox/onboarding) button and generate an Autumn Secret Key
    - For production, select the production mode from upper left corner and generate and fill the other fields. After that, generate an Autumn Secret Key
@@ -191,11 +201,9 @@ You can set up Zero in two ways:
    ```
 
 4. **Twilio Setup** (Required for SMS Integration)
-
    - Go to the [Twilio](https://www.twilio.com/)
    - Create a Twilio account if you don’t already have one
    - From the dashboard, locate your:
-
      - Account SID
      - Auth Token
      - Phone Number
@@ -226,7 +234,6 @@ Zero uses PostgreSQL for storing data. Here's how to set it up:
    ```
 
    This creates a database with:
-
    - Name: `zerodotemail`
    - Username: `postgres`
    - Password: `postgres`
@@ -243,7 +250,6 @@ Zero uses PostgreSQL for storing data. Here's how to set it up:
    ```
 
 3. **Database Commands**
-
    - **Set up database tables**:
 
      ```bash

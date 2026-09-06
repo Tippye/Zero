@@ -17,14 +17,12 @@ import { useBilling } from '@/hooks/use-billing';
 import { useIsMobile } from '@/hooks/use-mobile';
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useSession } from '@/lib/auth-client';
 import { useAIFullScreen } from './ai-sidebar';
 import { useStats } from '@/hooks/use-stats';
 import { useLocation } from 'react-router';
 import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 // import { Video } from 'lucide-react';
-import { NavUser } from './nav-user';
 import { NavMain } from './nav-main';
 import { useQueryState } from 'nuqs';
 // import { toast } from 'sonner';
@@ -44,7 +42,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isFullScreen } = useAIFullScreen();
   const { data: stats } = useStats();
   const location = useLocation();
-  const { data: session } = useSession();
   const { currentSection, navItems } = useMemo(() => {
     // Find which section we're in based on the pathname
     const section = Object.entries(navigationConfig).find(([, config]) =>
@@ -96,8 +93,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarHeader
             className={`relative top-2.5 flex flex-col gap-2 ${state === 'collapsed' ? 'px-2' : 'md:px-4'}`}
           >
-            {session && <NavUser />}
-
             {showComposeButton && (
               <div className="flex gap-1">
                 <div className={cn('w-full')}>

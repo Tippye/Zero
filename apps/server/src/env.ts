@@ -66,6 +66,7 @@ export type ZeroEnv = {
   REDIS_TOKEN: string;
   OPENAI_API_KEY: string;
   OPENAI_BASE_URL?: string;
+  LLM_LOOPBACK_HOST?: string;
   SELF_HOSTED?: string;
   SELF_HOSTED_AUTH?: string;
   AUTH_ORIGINS?: string;

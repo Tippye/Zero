@@ -1,4 +1,4 @@
-# Zero Fork：IMAP / SMTP、BYOK 和移动端构建说明
+> 当前 1.0.0 使用说明请见[中文首页](README.zh-CN.md)和[Docker Compose 部署文档](deploy/README.zh-CN.md)。本文保留早期开发阶段记录，其中的功能清单、入口和认证方式不代表当前 1.0.0 版本。
 
 > 邮件界面现已统一为 `/mail/inbox`：Gmail 与 IMAP 共用收件箱、阅读器、编辑器和按邮箱分组的侧边栏；旧 `/imap` 仅保留跳转。
 
