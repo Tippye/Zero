@@ -111,13 +111,12 @@ export const useThread = (threadId: string | null, preview?: IGetThreadResponse)
   );
 
   const threadData = preview || threadQuery.data;
-  const { latestDraft, isGroupThread, finalData, latestMessage } = useMemo(() => {
+  const { latestDraft, isGroupThread, finalData } = useMemo(() => {
     if (!threadData) {
       return {
         latestDraft: undefined,
         isGroupThread: false,
         finalData: undefined,
-        latestMessage: undefined,
       };
     }
 
@@ -137,14 +136,13 @@ export const useThread = (threadId: string | null, preview?: IGetThreadResponse)
       : false;
 
     const nonDraftMessages = threadData.messages.filter((e) => !e.isDraft);
-    const latestMessage = nonDraftMessages[nonDraftMessages.length - 1];
 
     const finalData: IGetThreadResponse = {
       ...threadData,
       messages: nonDraftMessages,
     };
 
-    return { latestDraft, isGroupThread, finalData, latestMessage };
+    return { latestDraft, isGroupThread, finalData };
   }, [threadData]);
 
   return { ...threadQuery, data: finalData, isGroupThread, latestDraft };

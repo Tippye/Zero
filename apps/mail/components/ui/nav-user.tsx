@@ -19,12 +19,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useActiveConnection, useConnections } from '@/hooks/use-connections';
+import { useActiveConnection } from '@/hooks/use-connections';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDoState } from '@/components/mail/use-do-state';
-import { useLoading } from '../context/loading-context';
 import { signOut, useSession } from '@/lib/auth-client';
 import { AddConnectionDialog } from '../connection/add';
 import { CircleCheck, ThreeDots } from '../icons/icons';
@@ -96,19 +95,14 @@ export function NavUser() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { state } = useSidebar();
   const trpc = useTRPC();
-  const [, setThreadId] = useQueryState('threadId');
-  const { mutateAsync: setDefaultConnection } = useMutation(
-    trpc.connections.setDefault.mutationOptions(),
-  );
   const { mutateAsync: handleForceSync } = useMutation(trpc.mail.forceSync.mutationOptions());
   const { openBillingPortal, customer: billingCustomer, isPro } = useBilling();
   const selfHosted = import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true';
   const pathname = useLocation().pathname;
   const queryClient = useQueryClient();
-  const { data: activeConnection, refetch: refetchActiveConnection } = useActiveConnection();
+  const { data: activeConnection } = useActiveConnection();
   const [, setPricingDialog] = useQueryState('pricingDialog');
   const [category] = useQueryState('category', { defaultValue: 'All Mail' });
-  const { setLoading } = useLoading();
   const [{ isSyncing, syncingFolders, storageSize, shards }] = useDoState();
 
   const getSettingsHref = useCallback(() => {

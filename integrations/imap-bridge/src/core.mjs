@@ -20,7 +20,7 @@ export function text(value, label, max = 1024, allowEmpty = false) {
 }
 export function headerText(value, label, max = 320, allowEmpty = false) {
   const result = text(value, label, max, allowEmpty);
-  ensure(!/[\r\n\0]/.test(result), 'INVALID_INPUT', `Invalid ${label}`);
+  ensure(!/[\r\n]/.test(result) && !result.includes('\0'), 'INVALID_INPUT', `Invalid ${label}`);
   return result;
 }
 export function address(value) {

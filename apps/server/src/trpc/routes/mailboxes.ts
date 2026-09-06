@@ -165,7 +165,7 @@ async function groups(ctx: Ctx, values: string[]) {
 async function modify(ctx: Ctx, values: string[], addLabels: string[], removeLabels: string[]) {
   // Resolve and validate every owner before changing any mailbox.
   const selected = await groups(ctx, values);
-  for (const { account: a, ids } of selected) {
+  for (const { account: a } of selected) {
     if (
       a.providerId === 'imap' &&
       [...addLabels, ...removeLabels].some(
@@ -207,7 +207,7 @@ async function modify(ctx: Ctx, values: string[], addLabels: string[], removeLab
   return { success: true };
 }
 async function mapLimited<T, R>(values: T[], fn: (value: T) => Promise<R>): Promise<R[]> {
-  const result = new Array<R>(values.length);
+  const result: R[] = [];
   let index = 0;
   await Promise.all(
     Array.from({ length: Math.min(4, values.length) }, async () => {

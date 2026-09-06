@@ -246,8 +246,8 @@ export class MailService {
   async modify(account, ids, addLabels = [], removeLabels = []) {
     ensure(Array.isArray(ids) && ids.length > 0 && ids.length <= 100, 'INVALID_INPUT', 'Select 1–100 messages');
     ensure(Array.isArray(addLabels) && Array.isArray(removeLabels), 'INVALID_INPUT', 'Labels must be arrays');
-    const supported = ['UNREAD', 'STARRED', 'IMPORTANT', 'INBOX', 'TRASH', 'SPAM', 'ARCHIVE'];
-    ensure([...addLabels, ...removeLabels].every((label) => supported.includes(label)), 'NOT_SUPPORTED', 'IMAP supports read/star state and folder moves, not Gmail-specific labels', 422);
+    const supported = new Set(['UNREAD', 'STARRED', 'IMPORTANT', 'INBOX', 'TRASH', 'SPAM', 'ARCHIVE']);
+    ensure([...addLabels, ...removeLabels].every((label) => supported.has(label)), 'NOT_SUPPORTED', 'IMAP supports read/star state and folder moves, not Gmail-specific labels', 422);
     const destinationLabels = addLabels.filter((l) => ['INBOX', 'TRASH', 'SPAM', 'ARCHIVE'].includes(l));
     ensure(destinationLabels.length <= 1, 'INVALID_INPUT', 'Choose one destination folder');
     const destinations = { INBOX: 'inbox', TRASH: 'bin', SPAM: 'spam', ARCHIVE: 'archive' };

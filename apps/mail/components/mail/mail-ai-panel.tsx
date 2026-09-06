@@ -10,7 +10,7 @@ import { Button } from '../ui/button';
 import { locales } from '@/locales';
 
 type Action = 'ask' | 'summary' | 'translate';
-type Turn = { question: string; answer: string };
+type Turn = { id: number; question: string; answer: string };
 
 export function MailAiPanel({
   threadId,
@@ -28,6 +28,7 @@ export function MailAiPanel({
   const [language, setLanguage] = useState<string>(getLocale());
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
+  const nextTurnId = useRef(0);
   const [results, setResults] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -61,7 +62,10 @@ export function MailAiPanel({
           action: next,
           language,
           question: next === 'ask' ? question.trim() : '',
-          history: next === 'ask' ? turns.slice(-6) : [],
+          history:
+            next === 'ask'
+              ? turns.slice(-6).map(({ question, answer }) => ({ question, answer }))
+              : [],
         },
         { signal: controller.signal },
       );
@@ -70,7 +74,8 @@ export function MailAiPanel({
         await onTranslated(result.translation);
         setAction(null);
       } else if (next === 'ask') {
-        setTurns((previous) => [...previous, { question: question.trim(), answer: result.text }]);
+        const turn = { id: nextTurnId.current++, question: question.trim(), answer: result.text };
+        setTurns((previous) => [...previous, turn]);
         setQuestion('');
       } else {
         setResults((previous) => ({ ...previous, [`${next}:${language}`]: result.text }));
@@ -172,8 +177,8 @@ export function MailAiPanel({
             className="max-h-80 space-y-3 overflow-y-auto text-sm"
           >
             {action === 'ask'
-              ? turns.map((turn, index) => (
-                  <div key={index} className="space-y-2">
+              ? turns.map((turn) => (
+                  <div key={turn.id} className="space-y-2">
                     <p className="bg-muted whitespace-pre-wrap break-words rounded-md p-2 font-medium">
                       {turn.question}
                     </p>

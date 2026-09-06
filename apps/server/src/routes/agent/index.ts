@@ -1,4 +1,3 @@
-import { env } from '../../env';
 /*
  * Licensed to Zero Email Inc. under one or more contributor license agreements.
  * You may not use this file except in compliance with the Apache License, Version 2.0 (the "License").

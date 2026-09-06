@@ -11,7 +11,6 @@ import {
   ThreeDots,
   Tag,
   User,
-  ChevronDown,
   Printer,
 } from '../icons/icons';
 import {

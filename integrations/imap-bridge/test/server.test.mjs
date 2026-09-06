@@ -82,7 +82,7 @@ test('HTTP RPC authenticates, validates body limits, and redacts upstream errors
 
 test('draft operations validate mailbox ownership before accessing IMAP', async t => {
   const calls = [];
-  const { bridge } = await fixture(t, { mail: { verify: async () => {}, saveDraft: async (a, input) => { calls.push(a.email); return { id: 'synthetic-draft' }; }, deleteDraft: async () => calls.push('delete') } });
+  const { bridge } = await fixture(t, { mail: { verify: async () => {}, saveDraft: async (a) => { calls.push(a.email); return { id: 'synthetic-draft' }; }, deleteDraft: async () => calls.push('delete') } });
   const a = await bridge.call('owner', 'accounts.add', { email: 'a@qq.com', preset: 'qq', password: 'synthetic' });
   await assert.rejects(bridge.call('other', 'drafts.save', { accountId: a.id }));
   await assert.rejects(bridge.call('other', 'drafts.delete', { accountId: a.id, id: 'synthetic' }));

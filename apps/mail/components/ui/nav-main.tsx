@@ -16,7 +16,6 @@ import { m } from '../../paraglide/messages.js';
 import { Button } from '@/components/ui/button';
 import { useLabels } from '@/hooks/use-labels';
 import { Badge } from '@/components/ui/badge';
-import { useStats } from '@/hooks/use-stats';
 import SidebarLabels from './sidebar-labels';
 import { useCallback, useRef } from 'react';
 import { BASE_URL } from '@/lib/constants';
@@ -278,7 +277,6 @@ export function NavMain({ items }: NavMainProps) {
 
 function NavItem(item: NavItemProps & { href: string }) {
   const iconRef = useRef<IconRefType>(null);
-  const { data: stats } = useStats();
   const { clearAllFilters } = useCommandPalette();
 
   const { state, setOpenMobile } = useSidebar();

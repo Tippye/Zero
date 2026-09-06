@@ -1,7 +1,6 @@
 import { useComposerMailbox } from '@/hooks/use-mailboxes';
 import { useUndoSend } from '@/hooks/use-undo-send';
 import { constructReplyBody, constructForwardBody } from '@/lib/utils';
-import { useActiveConnection } from '@/hooks/use-connections';
 import { useEmailAliases } from '@/hooks/use-email-aliases';
 import { EmailComposer } from '../create/email-composer';
 import { useHotkeysContext } from 'react-hotkeys-hook';
@@ -12,12 +11,10 @@ import { useThread } from '@/hooks/use-threads';
 import { useSession } from '@/lib/auth-client';
 import { serializeFiles } from '@/lib/schemas';
 import { useDraft } from '@/hooks/use-drafts';
-import { m } from '@/paraglide/messages';
 import type { Sender } from '@/types';
 import { useQueryState } from 'nuqs';
 import { useEffect } from 'react';
 import posthog from 'posthog-js';
-import { toast } from 'sonner';
 
 interface ReplyComposeProps {
   messageId?: string;

@@ -6,7 +6,7 @@ import { ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { useCommandPalette } from '../context/command-palette-context';
 import { useHotkeysContext } from 'react-hotkeys-hook';
 import { ThreadDisplay } from '@/components/mail/thread-display';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useActiveConnection } from '@/hooks/use-connections';
 import { RefreshCcw } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/use-media-query';

@@ -31,7 +31,7 @@ import { useSearchValue } from '@/hooks/use-search-value';
 import { EmptyStateIcon } from '../icons/empty-state-svg';
 import { highlightText } from '@/lib/email-utils.client';
 import { cn, FOLDERS, formatDate } from '@/lib/utils';
-import { useMailboxes, useMailboxScope } from '@/hooks/use-mailboxes';
+import { useMailboxes } from '@/hooks/use-mailboxes';
 import { useTRPC } from '@/providers/query-provider';
 import { useThreadLabels } from '@/hooks/use-labels';
 import { useSettings } from '@/hooks/use-settings';
@@ -733,7 +733,6 @@ export const MailList = memo(
     }, [setAnchorIndex]);
 
     const { data: accounts = [] } = useMailboxes();
-    const accountId = useMailboxScope();
     const [{ data: mailboxPages, error: mailboxError, refetch, isLoading, isFetching, isFetchingNextPage, hasNextPage }, items, , loadMore] =
       useThreads();
     const trpc = useTRPC();

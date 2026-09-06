@@ -12,7 +12,7 @@ vi.mock('@/paraglide/messages', () => ({
   m: new Proxy({}, { get: (_, key) => () => String(key) }),
 }));
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ variant, size, ...props }: any) => <button {...props} />,
+  Button: ({ variant: _variant, size: _size, ...props }: any) => <button {...props} />,
 }));
 vi.mock('@/components/ui/textarea', () => ({ Textarea: (props: any) => <textarea {...props} /> }));
 
@@ -22,7 +22,8 @@ beforeEach(() => {
   mutate.mockResolvedValue({ text: 'Generated result' });
 });
 afterEach(cleanup);
-const mount = () => render(<MailAiPanel threadId="thread-1" messageId="message-1" />);
+const mount = () =>
+  render(<MailAiPanel threadId="thread-1" messageId="message-1" onTranslated={vi.fn()} />);
 
 describe('mail reading AI', () => {
   it('only generates a summary when requested and reuses it when reopened', async () => {
@@ -65,8 +66,10 @@ describe('mail reading AI', () => {
     await screen.findByRole('alert');
     expect(mutate.mock.calls[1][0]).toMatchObject({
       question: 'When?',
-      history: [{ question: 'How much?', answer: 'Generated result' }],
     });
+    expect(mutate.mock.calls[1][0].history).toEqual([
+      { question: 'How much?', answer: 'Generated result' },
+    ]);
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('When?');
   });
 
@@ -92,7 +95,7 @@ describe('mail reading AI', () => {
     await waitFor(() => expect(mutate).toHaveBeenCalledTimes(1));
     first.unmount();
     expect(mutate.mock.calls[0][1].signal.aborted).toBe(true);
-    render(<MailAiPanel threadId="thread-2" messageId="message-2" />);
+    render(<MailAiPanel threadId="thread-2" messageId="message-2" onTranslated={vi.fn()} />);
     finish({ text: 'Old email result' });
     fireEvent.click(screen.getByRole('button', { name: 'mailAi.ask' }));
     expect(screen.queryByText('Old email result')).toBeNull();

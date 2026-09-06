@@ -21,7 +21,7 @@ import { useSession } from '@/lib/auth-client';
 import { useAIFullScreen } from './ai-sidebar';
 import { useStats } from '@/hooks/use-stats';
 import { useLocation } from 'react-router';
-import { cn, FOLDERS } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { m } from '@/paraglide/messages';
 // import { Video } from 'lucide-react';
 import { NavUser } from './nav-user';
