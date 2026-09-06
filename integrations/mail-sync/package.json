@@ -1,0 +1,1 @@
+{"name":"zero-mail-sync","private":true,"type":"module","scripts":{"start":"node src/worker.mjs","test":"node --test test/*.test.mjs"},"dependencies":{"postgres":"3.4.5","undici":"7.11.0","email-addresses":"5.0.0"}}
