@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'"
+    />
+    <title>Zero Mail settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <h1>Zero Mail</h1>
+    <p>连接自己的邮件服务器 / Connect your own server</p>
+    <form id="settings">
+      <label
+        >服务器地址 / Server URL<input
+          id="server"
+          name="server"
+          type="url"
+          required
+          placeholder="https://mail.example.com"
+      /></label>
+      <label
+        ><input id="allowHttp" type="checkbox" />允许 HTTP（明文连接，仅用于可信内网或 VPN）</label
+      >
+      <label
+        ><input id="notifications" type="checkbox" />新邮件系统通知 / New mail notifications</label
+      >
+      <label
+        ><input id="preview" type="checkbox" />通知中显示发件人与主题 / Show notification
+        previews</label
+      >
+      <label
+        ><input id="closeToTray" type="checkbox" />关闭窗口后留在托盘 / Keep running in tray</label
+      >
+      <label
+        ><input id="launchAtLogin" type="checkbox" />登录 Windows 时启动 / Start with Windows</label
+      >
+      <button type="submit">保存并连接 / Connect</button>
+    </form>
+    <hr />
+    <h2>系统集成 / System integration</h2>
+    <p id="status"></p>
+    <button id="notification" type="button">测试系统通知 / Test notification</button>
+    <button id="defaults" type="button">设置为默认邮件应用 / Default mail app</button>
+    <p class="hint">
+      安装后可在 Windows 设置中将 MAILTO 关联到 Zero Mail。便携 ZIP
+      版本不注册系统关联。通知需要应用运行，关闭窗口后可保留在托盘；退出应用后停止通知。
+    </p>
+    <p id="result" role="status"></p>
+    <script src="settings.js"></script>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+{
+  "name": "zero-desktop",
+  "productName": "Zero Mail",
+  "version": "0.2.0",
+  "description": "An open, self-hosted email client",
+  "author": "Zero contributors",
+  "license": "MIT",
+  "private": true,
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "dist:win": "electron-builder --win nsis zip --x64 --publish never",
+    "pack:linux": "electron-builder --linux dir --publish never"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.53.1",
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.zero.mail",
+    "productName": "Zero Mail",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "signExecutable": false,
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "include": "build/installer.nsh"
+    }
+  }
+}

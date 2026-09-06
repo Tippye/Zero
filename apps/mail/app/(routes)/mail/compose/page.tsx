@@ -44,7 +44,7 @@ export default function ComposePage() {
         <CreateEmail
           initialTo={params.to || ''}
           initialSubject={params.subject || ''}
-          initialBody={params.body || ''}
+          initialBody={(params.body || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br />')}
           initialCc={params.cc || ''}
           initialBcc={params.bcc || ''}
           draftId={params.draftId || null}

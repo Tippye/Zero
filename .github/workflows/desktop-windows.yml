@@ -1,0 +1,25 @@
+name: Windows desktop build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  desktop:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+        working-directory: native/desktop
+      - run: npm test
+        working-directory: native/desktop
+      - run: npm run dist:win
+        working-directory: native/desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Zero-Mail-Windows
+          path: |
+            native/desktop/release/*.exe
+            native/desktop/release/*.zip
