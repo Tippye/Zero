@@ -1,3 +1,4 @@
+import { runMailAI } from './lib/ai-runtime';
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -99,14 +100,14 @@ export const getPrompt = async (
   }
 };
 
-export const getEmbeddingVector = async (text: string) => {
+export const getEmbeddingVector = async (text: string, connectionId?: string) => {
   try {
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       log('[getEmbeddingVector] Empty or invalid text provided');
       return null;
     }
 
-    const embeddingResponse = await env.AI.run(
+    const embeddingResponse = await runMailAI(
       '@cf/baai/bge-large-en-v1.5',
       { text: text.trim() },
       {
@@ -114,6 +115,7 @@ export const getEmbeddingVector = async (text: string) => {
           id: 'vectorize-save',
         },
       },
+      connectionId ? { connectionId } : undefined,
     );
     const embeddingVector = (embeddingResponse as any).data?.[0];
     return embeddingVector ?? null;

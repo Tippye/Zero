@@ -47,7 +47,7 @@ export const authProviders = (env: Record<string, string>): ProviderConfig[] => 
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
     },
-    required: true,
+    required: env.SELF_HOSTED !== 'true',
   },
   //   {
   //     id: 'microsoft',

@@ -1,3 +1,4 @@
+import { runMailAI } from '../../lib/ai-runtime';
 import { disableBrainFunction, getPrompts } from '../../lib/brain';
 import { EProviders, EPrompts, type ISubscribeBatch } from '../../types';
 import { activeConnectionProcedure, router } from '../trpc';
@@ -40,7 +41,7 @@ export const brainRouter = router({
       if (response.length && response?.[0]?.metadata?.['summary']) {
         const result = response[0].metadata as { summary: string; connection: string };
         if (result.connection !== ctx.activeConnection.id) return null;
-        const shortResponse = await env.AI.run('@cf/facebook/bart-large-cnn', {
+        const shortResponse = await runMailAI('@cf/facebook/bart-large-cnn', {
           input_text: result.summary,
         });
         return {

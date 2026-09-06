@@ -15,12 +15,13 @@
  */
 
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { openai } from '../openai';
 import { z } from 'zod';
 import { env } from 'cloudflare:workers';
 
 export interface GenerateTopicsOptions {
   sampleSize?: number;
+  connectionId?: string;
   cacheTtlMin?: number;
   existingLabels?: { name: string; id: string }[];
 }
@@ -38,11 +39,6 @@ export async function generateWhatUserCaresAbout(
   opts: GenerateTopicsOptions = {}
 ): Promise<UserTopic[]> {
   if (!subjects.length) {
-    return [];
-  }
-
-  if (!env.OPENAI_API_KEY) {
-    console.warn('OPENAI_API_KEY not configured - topics generation disabled');
     return [];
   }
 
@@ -91,7 +87,7 @@ ${sample.join('\n')}`;
 
   try {
     const { object } = await generateObject({
-      model: openai(env.OPENAI_MODEL || 'gpt-4o-mini'),
+      model: await openai(env.OPENAI_MODEL || 'gpt-4o-mini', opts.connectionId ? { connectionId: opts.connectionId } : undefined),
       schema,
       system: systemPrompt,
       prompt: userPrompt,

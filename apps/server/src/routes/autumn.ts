@@ -25,6 +25,13 @@ type AutumnContext = {
 
 export const autumnApi = new Hono<AutumnContext>()
   .use('*', async (c, next) => {
+    if (env.SELF_HOSTED === 'true' || !env.AUTUMN_SECRET_KEY) {
+      // No subscription customer when billing is not configured. This grants no features.
+      if (c.req.method === 'POST' && c.req.path.endsWith('/customers')) {
+        return c.json(null);
+      }
+      return c.json({ error: 'Billing is not configured' }, 503);
+    }
     const { sessionUser } = c.var;
     c.set(
       'customerData',

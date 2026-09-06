@@ -1,3 +1,4 @@
+import { runMailAI } from '../../lib/ai-runtime';
 /*
  * Licensed to Zero Email Inc. under one or more contributor license agreements.
  * You may not use this file except in compliance with the Apache License, Version 2.0 (the "License").
@@ -98,9 +99,9 @@ export class ZeroMCP extends McpAgent<typeof env, Record<string, unknown>, { use
               ],
             };
           }
-          const shortResponse = await env.AI.run('@cf/facebook/bart-large-cnn', {
+          const shortResponse = await runMailAI('@cf/facebook/bart-large-cnn', {
             input_text: result.summary,
-          });
+          }, undefined, { ownerId: this.props.userId });
           return {
             content: [
               {

@@ -7,7 +7,7 @@ import {
   SuperSearchEmail,
   WelcomeEmail,
 } from './react-emails/email-sequences';
-import { createAuthMiddleware, phoneNumber, jwt, bearer, mcp } from 'better-auth/plugins';
+import { createAuthMiddleware, phoneNumber, jwt, bearer, mcp, anonymous } from 'better-auth/plugins';
 import { type Account, betterAuth, type BetterAuthOptions } from 'better-auth';
 import { getBrowserTimezone, isValidTimezone } from './timezones';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -158,11 +158,15 @@ const connectionHandlerHook = async (account: Account) => {
 };
 
 export const createAuth = () => {
-  const twilioClient = twilio();
   const dub = new Dub();
 
   return betterAuth({
     plugins: [
+      ...(env.SELF_HOSTED === 'true' ? [anonymous({
+        emailDomainName: 'guest.zero.local',
+        generateName: () => '本机邮箱用户',
+        disableDeleteAnonymousUser: true,
+      })] : []),
       dubAnalytics({
         dubClient: dub,
       }),
@@ -173,7 +177,7 @@ export const createAuth = () => {
       bearer(),
       phoneNumber({
         sendOTP: async ({ code, phoneNumber }) => {
-          await twilioClient.messages
+          await twilio().messages
             .send(phoneNumber, `Your verification code is: ${code}, do not share it with anyone.`)
             .catch((error) => {
               console.error('Failed to send OTP', error);
@@ -205,9 +209,10 @@ export const createAuth = () => {
           if (!request) throw new APIError('BAD_REQUEST', { message: 'Request object is missing' });
           const db = await getZeroDB(user.id);
           const connections = await db.findManyConnections();
-          const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
           try {
-            await autumn.customers.delete(user.id);
+            if (env.SELF_HOSTED !== 'true' && env.AUTUMN_SECRET_KEY) {
+              await new Autumn({ secretKey: env.AUTUMN_SECRET_KEY }).customers.delete(user.id);
+            }
           } catch (error) {
             console.error('Failed to delete Autumn customer:', error);
             // Continue with deletion process despite Autumn failure
@@ -356,6 +361,7 @@ const createAuthConfig = () => {
     },
     baseURL: env.VITE_PUBLIC_BACKEND_URL,
     trustedOrigins: [
+      env.VITE_PUBLIC_APP_URL,
       'https://app.0.email',
       'https://sapi.0.email',
       'https://staging.0.email',

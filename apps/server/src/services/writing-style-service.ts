@@ -1,10 +1,10 @@
+import { openai } from '../lib/openai';
 import { mapToObj, pipe, entries, sortBy, take, fromEntries } from 'remeda';
 
 import { writingStyleMatrix } from '../db/schema';
 
 
 import { env } from '../env';
-import { google } from '@ai-sdk/google';
 import { jsonrepair } from 'jsonrepair';
 import { generateObject } from 'ai';
 import { eq } from 'drizzle-orm';
@@ -178,7 +178,7 @@ export const getWritingStyleMatrixForConnectionId = async ({
       return null;
     }
 
-    const newMatrix = await extractStyleMatrix(backupContent);
+    const newMatrix = await extractStyleMatrix(backupContent, connectionId);
 
     return {
       connectionId,
@@ -191,7 +191,7 @@ export const getWritingStyleMatrixForConnectionId = async ({
 };
 
 export const updateWritingStyleMatrix = async (connectionId: string, emailBody: string) => {
-  const emailStyleMatrix = await extractStyleMatrix(emailBody);
+  const emailStyleMatrix = await extractStyleMatrix(emailBody, connectionId);
 
   await pRetry(
     async () => {
@@ -333,13 +333,13 @@ export type WritingStyleMatrix = Record<(typeof MEAN_METRIC_KEYS)[number], Welfo
   Record<(typeof SUM_METRIC_KEYS)[number], number> &
   Record<(typeof TOP_COUNTS_KEYS)[number], Record<string, number>>;
 
-const extractStyleMatrix = async (emailBody: string) => {
+const extractStyleMatrix = async (emailBody: string, connectionId: string) => {
   if (!emailBody.trim()) {
     throw new Error('Invalid body provided.');
   }
 
   const { object: result } = await generateObject({
-    model: google('gemini-2.0-flash'),
+    model: await openai(env.OPENAI_MODEL || 'gpt-4o', { connectionId }),
     schema,
     temperature: 0,
     maxTokens: 600,

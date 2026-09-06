@@ -1,10 +1,10 @@
+import { runMailAI } from '../../lib/ai-runtime';
 import { getCurrentDateContext, GmailSearchAssistantSystemPrompt } from '../../lib/prompts';
 import { getThread, getZeroAgent } from '../../lib/server-utils';
 import type { IGetThreadResponse } from '../../lib/driver/types';
 import { composeEmail } from '../../trpc/routes/ai/compose';
-import { perplexity } from '@ai-sdk/perplexity';
 import { colors } from '../../lib/prompts';
-import { openai } from '@ai-sdk/openai';
+import { openai } from '../../lib/openai';
 import { generateText, tool } from 'ai';
 import { Tools } from '../../types';
 import { env } from '../../env';
@@ -24,7 +24,7 @@ export const getEmbeddingVector = async (
   gatewayId: 'vectorize-save' | 'vectorize-load',
 ) => {
   try {
-    const embeddingResponse = await env.AI.run(
+    const embeddingResponse = await runMailAI(
       models.vectorize,
       { text },
       {
@@ -146,9 +146,9 @@ const getThreadSummary = (connectionId: string) =>
         if (result.connection !== connectionId) {
           return null;
         }
-        const shortResponse = await env.AI.run('@cf/facebook/bart-large-cnn', {
+        const shortResponse = await runMailAI('@cf/facebook/bart-large-cnn', {
           input_text: result.summary,
-        });
+        }, undefined, { connectionId });
         return {
           short: shortResponse.summary,
           subject: thread.latest?.subject,
@@ -409,7 +409,7 @@ const deleteLabel = (connectionId: string) =>
     },
   });
 
-const buildGmailSearchQuery = () =>
+const buildGmailSearchQuery = (connectionId: string) =>
   tool({
     description: 'Build a Gmail search query',
     parameters: z.object({
@@ -419,7 +419,7 @@ const buildGmailSearchQuery = () =>
       console.log('[DEBUG] buildGmailSearchQuery', params);
 
       const result = await generateText({
-        model: openai(env.OPENAI_MODEL || 'gpt-4o'),
+        model: await openai(env.OPENAI_MODEL || 'gpt-4o', connectionId ? { connectionId } : undefined),
         system: GmailSearchAssistantSystemPrompt(),
         prompt: params.query,
       });
@@ -452,19 +452,19 @@ const getCurrentDate = () =>
     },
   });
 
-export const webSearch = () =>
+export const webSearch = (connectionId?: string) =>
   tool({
-    description: 'Search the web for information using Perplexity AI',
+    description: 'Answer general knowledge questions using the configured AI model. No live web access.',
     parameters: z.object({
-      query: z.string().describe('The query to search the web for'),
+      query: z.string().describe('The question to answer from existing knowledge'),
     }),
     execute: async ({ query }) => {
       try {
         const response = await generateText({
-          model: perplexity('sonar'),
+          model: await openai(env.OPENAI_MODEL || 'gpt-4o', connectionId ? { connectionId } : undefined),
           messages: [
             { role: 'system', content: 'Be precise and concise.' },
-            { role: 'system', content: 'Do not include sources in your response.' },
+            { role: 'system', content: 'You have no live web access. Do not invent sources or claim to have verified current information.' },
             { role: 'system', content: 'Do not use markdown formatting in your response.' },
             { role: 'user', content: query },
           ],
@@ -493,9 +493,9 @@ export const tools = async (connectionId: string, ragEffect: boolean = false) =>
     [Tools.BulkDelete]: bulkDelete(connectionId),
     [Tools.BulkArchive]: bulkArchive(connectionId),
     [Tools.DeleteLabel]: deleteLabel(connectionId),
-    [Tools.BuildGmailSearchQuery]: buildGmailSearchQuery(),
+    [Tools.BuildGmailSearchQuery]: buildGmailSearchQuery(connectionId),
     [Tools.GetCurrentDate]: getCurrentDate(),
-    [Tools.WebSearch]: webSearch(),
+    [Tools.WebSearch]: webSearch(connectionId),
     [Tools.InboxRag]: tool({
       description:
         'Search the inbox for emails using natural language. Returns only an array of threadIds.',

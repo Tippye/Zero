@@ -1,3 +1,4 @@
+import { runMailAI } from '../lib/ai-runtime';
 /*
  * Licensed to Zero Email Inc. under one or more contributor license agreements.
  * You may not use this file except in compliance with the Apache License, Version 2.0 (the "License").
@@ -243,16 +244,16 @@ export const workflowFunctions: Record<string, WorkflowFunction> = {
           { role: 'user', content: prompt },
         ];
 
-        const response = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+        const response = await runMailAI('@cf/meta/llama-4-scout-17b-16e-instruct', {
           messages,
-        });
+        }, undefined, { connectionId: context.connectionId });
 
         const summary = 'response' in response ? response.response : response;
         if (!summary || typeof summary !== 'string') {
           throw new Error(`Invalid summary response for message ${message.id}`);
         }
 
-        const embeddingVector = await getEmbeddingVector(summary);
+        const embeddingVector = await getEmbeddingVector(summary, context.connectionId);
         if (!embeddingVector) {
           throw new Error(`Message Embedding vector is null ${message.id}`);
         }
@@ -386,7 +387,7 @@ export const workflowFunctions: Record<string, WorkflowFunction> = {
       return { upserted: false };
     }
 
-    const embeddingVector = await getEmbeddingVector(summaryResult.summary);
+    const embeddingVector = await getEmbeddingVector(summaryResult.summary, context.connectionId);
     if (!embeddingVector) {
       console.log('[WORKFLOW_FUNCTIONS] Thread Embedding vector is null, skipping vector upsert');
       return { upserted: false };
@@ -497,7 +498,7 @@ Instructions:
 
 Thread Summary: ${summaryResult.summary}`;
 
-    const labelsResponse = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+    const labelsResponse = await runMailAI('@cf/meta/llama-4-scout-17b-16e-instruct', {
       messages: [
         {
           role: 'system',
@@ -506,9 +507,10 @@ Thread Summary: ${summaryResult.summary}`;
         },
         { role: 'user', content: promptContent },
       ],
-    });
+    }, undefined, { connectionId: context.connectionId });
 
-    const suggestions: { name: string; source: string }[] = labelsResponse.response;
+    const suggestions: { name: string; source: string }[] = typeof labelsResponse.response === 'string'
+      ? JSON.parse(labelsResponse.response.replace(/^```(?:json)?\s*|\s*```$/g, '')) : labelsResponse.response;
 
     console.log('[WORKFLOW_FUNCTIONS] Generated label suggestions:', suggestions);
     return { suggestions, accountLabelsMap };
@@ -667,9 +669,9 @@ const summarizeThread = async (
           content: prompt,
         },
       ];
-      const response = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+      const response = await runMailAI('@cf/meta/llama-4-scout-17b-16e-instruct', {
         messages: promptMessages,
-      });
+      }, undefined, { connectionId });
       const summary = response.response;
       return typeof summary === 'string' ? summary : null;
     } else {
@@ -684,9 +686,9 @@ const summarizeThread = async (
           content: prompt,
         },
       ];
-      const response = await env.AI.run('@cf/meta/llama-4-scout-17b-16e-instruct', {
+      const response = await runMailAI('@cf/meta/llama-4-scout-17b-16e-instruct', {
         messages: promptMessages,
-      });
+      }, undefined, { connectionId });
       const summary = response.response;
       return typeof summary === 'string' ? summary : null;
     }

@@ -31,6 +31,7 @@ export const meetRouter = router({
     .mutation(async ({ ctx }) => {
       const enableMeet = env.ENABLE_MEET === 'true';
       if (!enableMeet) return new Response('Not implemented', { status: 501 });
+      if (env.SELF_HOSTED !== 'true') {
       const autumn = new Autumn({ secretKey: env.AUTUMN_SECRET_KEY });
       const customer = await autumn.customers.get(ctx.sessionUser?.id);
       if (!customer.data) {
@@ -42,6 +43,8 @@ export const meetRouter = router({
           code: 'UNAUTHORIZED',
           message: 'Customer is not a pro customer, please upgrade to a pro plan',
         });
+      }
+
       }
 
       const AuthHeader = env.MEET_AUTH_HEADER;

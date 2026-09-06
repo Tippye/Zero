@@ -1,3 +1,4 @@
+import { env } from '../../env';
 /*
  * Licensed to Zero Email Inc. under one or more contributor license agreements.
  * You may not use this file except in compliance with the Apache License, Version 2.0 (the "License").
@@ -57,18 +58,16 @@ import { ToolOrchestrator } from './orchestrator';
 import { eq, desc, isNotNull } from 'drizzle-orm';
 import migrations from './db/drizzle/migrations';
 import { getPromptName } from '../../pipelines';
-import { anthropic } from '@ai-sdk/anthropic';
 import { connection } from '../../db/schema';
 import type { WSMessage } from 'partyserver';
 import { tools as authTools } from './tools';
 import { processToolCalls } from './utils';
 import { type ZeroEnv } from '../../env';
 import { type Connection } from 'agents';
-import { openai } from '@ai-sdk/openai';
+import { openai } from '../../lib/openai';
 import * as schema from './db/schema';
 import { threads } from './db/schema';
 import { Effect, pipe } from 'effect';
-import { groq } from '@ai-sdk/groq';
 import { createDb } from '../../db';
 import type { Message } from 'ai';
 import { create } from './db';
@@ -512,7 +511,7 @@ export class ZeroDriver extends DurableObject<ZeroEnv> {
       existingLabels = existingLabelsResult;
 
       const topics = yield* Effect.tryPromise(() =>
-        generateWhatUserCaresAbout(subjects, { existingLabels }),
+        generateWhatUserCaresAbout(subjects, { existingLabels, connectionId: this.name }),
       ).pipe(
         Effect.tap((topics) =>
           Effect.sync(() => {
@@ -735,6 +734,16 @@ export class ZeroDriver extends DurableObject<ZeroEnv> {
         `[syncFolders] Skipping sync for ${this.name} - threadCount (${threadCount}) >= maxCount (${maxCount})`,
       );
     }
+  }
+
+  async getRawEmail(id: string): Promise<string> {
+    if (!this.driver) throw new Error('No driver available');
+    return this.driver.getRawEmail(id);
+  }
+
+  async getProviderThread(id: string): Promise<IGetThreadResponse> {
+    if (!this.driver) throw new Error('No driver available');
+    return await this.driver.get(id);
   }
 
   async rawListThreads(params: {
@@ -1062,6 +1071,9 @@ export class ZeroDriver extends DurableObject<ZeroEnv> {
   }
 
   async inboxRag(query: string) {
+    if (this.env.SELF_HOSTED === 'true') {
+      return { result: '使用 OpenAI 生成搜索条件并查询邮箱；未启用云端向量索引。', data: [] };
+    }
     if (!this.env.AUTORAG_ID) {
       console.warn('[inboxRag] AUTORAG_ID not configured - RAG search disabled');
       return { result: 'Not enabled', data: [] };
@@ -1124,9 +1136,9 @@ export class ZeroDriver extends DurableObject<ZeroEnv> {
       }),
     ).pipe(Effect.catchAll(() => Effect.succeed([])));
 
-    const genQueryEffect = Effect.tryPromise(() =>
+    const genQueryEffect = Effect.tryPromise(async () =>
       generateText({
-        model: openai(this.env.OPENAI_MODEL || 'gpt-4o'),
+        model: await openai(this.env.OPENAI_MODEL || 'gpt-4o', { connectionId: this.name }),
         system: GmailSearchAssistantSystemPrompt(),
         prompt: params.query,
       }).then((response) => response.text),
@@ -1771,9 +1783,7 @@ export class ZeroAgent extends AIChatAgent<ZeroEnv> {
         );
 
         const model =
-          this.env.USE_OPENAI === 'true'
-            ? groq('openai/gpt-oss-120b')
-            : anthropic(this.env.OPENAI_MODEL || 'claude-3-7-sonnet-20250219');
+          await openai(this.env.OPENAI_MODEL || 'gpt-4o', { connectionId: this.name });
 
         const result = streamText({
           model,

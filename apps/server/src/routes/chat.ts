@@ -1,3 +1,4 @@
+import { runMailAI } from '../lib/ai-runtime';
 import {
   streamText,
   generateObject,
@@ -28,10 +29,9 @@ import type { Message as ChatMessage } from 'ai';
 import { getPromptName } from '../pipelines';
 import { connection } from '../db/schema';
 import { getPrompt } from '../lib/brain';
-import { openai } from '@ai-sdk/openai';
+import { openai } from '../lib/openai';
 import { and, eq } from 'drizzle-orm';
 import { McpAgent } from 'agents/mcp';
-import { groq } from '@ai-sdk/groq';
 import { createDb } from '../db';
 import { z } from 'zod';
 
@@ -356,7 +356,7 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
             throw new Error('Unauthorized no driver or connectionId [2]');
           }
         }
-        const tools = { ...authTools(this.driver, connectionId), buildGmailSearchQuery };
+        const tools = { ...authTools(this.driver, connectionId), buildGmailSearchQuery: buildGmailSearchQuery(connectionId) };
         const processedMessages = await processToolCalls(
           {
             messages: this.messages,
@@ -367,7 +367,7 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
         );
 
         const result = streamText({
-          model: openai('gpt-4o'),
+          model: await openai(env.OPENAI_MODEL || 'gpt-4o', { connectionId: this.name }),
           messages: processedMessages,
           tools,
           onFinish,
@@ -693,7 +693,7 @@ export class ZeroAgent extends AIChatAgent<typeof env> {
 
   async buildGmailSearchQuery(query: string) {
     const result = await generateText({
-      model: openai('gpt-4o'),
+      model: await openai(env.OPENAI_MODEL || 'gpt-4o', { connectionId: this.name }),
       system: GmailSearchAssistantSystemPrompt(),
       prompt: query,
     });
@@ -1253,7 +1253,7 @@ export class ZeroMCP extends McpAgent<typeof env, {}, { userId: string }> {
       },
       async (s) => {
         const result = await generateText({
-          model: openai('gpt-4o'),
+          model: await openai(env.OPENAI_MODEL || 'gpt-4o', { ownerId: this.props.userId }),
           system: GmailSearchAssistantSystemPrompt(),
           prompt: s.query,
         });
@@ -1345,9 +1345,9 @@ export class ZeroMCP extends McpAgent<typeof env, {}, { userId: string }> {
         const response = await env.VECTORIZE.getByIds([s.threadId]);
         if (response.length && response?.[0]?.metadata?.['summary']) {
           const content = response[0].metadata['summary'] as string;
-          const shortResponse = await env.AI.run('@cf/facebook/bart-large-cnn', {
+          const shortResponse = await runMailAI('@cf/facebook/bart-large-cnn', {
             input_text: content,
-          });
+          }, undefined, { ownerId: this.props.userId });
           return {
             content: [
               ...initialResponse,
@@ -1591,14 +1591,14 @@ export class ZeroMCP extends McpAgent<typeof env, {}, { userId: string }> {
   }
 }
 
-const buildGmailSearchQuery = tool({
+const buildGmailSearchQuery = (connectionId: string) => tool({
   description: 'Build a Gmail search query',
   parameters: z.object({
     query: z.string().describe('The search query to build, provided in natural language'),
   }),
   execute: async ({ query }) => {
     const result = await generateObject({
-      model: openai('gpt-4o'),
+      model: await openai(env.OPENAI_MODEL || 'gpt-4o', { connectionId }),
       system: GmailSearchAssistantSystemPrompt(),
       prompt: query,
       schema: z.object({

@@ -1,5 +1,5 @@
 import { systemPrompt } from '../services/call-service/system-prompt';
-import { openai } from '@ai-sdk/openai';
+import { openai } from '../lib/openai';
 import { tools } from './agent/tools';
 import { generateText } from 'ai';
 import { Tools } from '../types';
@@ -129,7 +129,7 @@ aiRouter.post('/call', async (c) => {
   console.log('[DEBUG] Creating toolset for connection:', connection.id);
   const toolset = await tools(connection.id);
   const { text } = await generateText({
-    model: openai(env.OPENAI_MODEL || 'gpt-4o'),
+    model: await openai(env.OPENAI_MODEL || 'gpt-4o', { ownerId: user.id }),
     system: systemPrompt,
     prompt: data.query,
     tools: toolset,

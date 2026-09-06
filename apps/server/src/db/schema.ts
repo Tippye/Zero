@@ -18,6 +18,7 @@ export const user = createTable('user', {
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull(),
+  isAnonymous: boolean('is_anonymous').notNull().default(false),
   image: text('image'),
   createdAt: timestamp('created_at').notNull(),
   updatedAt: timestamp('updated_at').notNull(),
@@ -322,3 +323,10 @@ export const emailTemplate = createTable(
     unique('mail0_email_template_user_id_name_unique').on(t.userId, t.name),
   ],
 );
+
+// Separate from public preferences: profile keys are encrypted before persistence.
+export const userLlmSettings = createTable('user_llm_settings', {
+  userId: text('user_id').primaryKey().references(() => user.id, { onDelete: 'cascade' }),
+  profiles: jsonb('profiles').$type<import('../lib/llm-settings').LlmProfile[]>().notNull(),
+  activeId: text('active_id'),
+});
