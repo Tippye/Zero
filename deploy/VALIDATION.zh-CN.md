@@ -17,10 +17,10 @@
 | 协议冷启动 | 按注册处理程序命令启动 `mailto:`；实际登录后写信页面显示测试收件人、主题和正文 |
 | 协议热启动 | Windows Shell 打开 `zeromail:`，已有客户端跳转，实际输入框显示正确主题与收件人 |
 | 关闭到托盘 | 关闭测试窗口后进程继续运行；`zeromail://inbox` 可再次唤起 |
-| 默认邮件应用 | MAILTO ProgID、Capabilities、RegisteredApplications 和引号均检查通过；Windows 默认应用界面实际显示 Zero Mail 及 MAILTO 项；测试未修改 UserChoice、未代替用户选择默认应用 |
+| 默认邮件应用 | MAILTO ProgID、Capabilities、RegisteredApplications 和引号均检查通过；Windows 默认应用界面实际显示 Zero Mail 及 MAILTO 项；末次关联键为 ZeroMail.mailto，Windows Shell 直接打开 mailto 已唤起应用并进入写信页；客户端默认状态检测也返回 true；测试脚本未写入 UserChoice |
 | 回归 | 桥接与同步共 51 项测试通过；协议解析与通知轮询测试通过；邮件阅读 AI、翻译及重试测试通过 |
 
-以下没有宣称通过：真实供应商的 IMAP/SMTP/OAuth 收发（未提供本次专用测试邮箱）；用户在 Windows 设置中实际切换 MAILTO 默认值后，从第三方软件唤起；Windows 通知中心中的人工点击、勿扰策略、重启 Windows 后自动启动。通知点击路径有单元测试，系统 show 事件不能替代点击验收。客户端未实现 MAPI/COM 或完整离线收发。安装程序未签名。
+以下没有宣称通过：真实供应商的 IMAP/SMTP/OAuth 收发（未提供本次专用测试邮箱）；其他第三方软件的邮件调用兼容性；Windows 通知中心中的人工点击、勿扰策略、重启 Windows 后自动启动。通知点击路径有单元测试，系统 show 事件不能替代点击验收。客户端未实现 MAPI/COM 或完整离线收发。安装程序未签名。
 
 Compose 是单实例 workerd / Miniflare 部署；定时发送和延迟撤回在此模式关闭，后端拒绝定时请求。Cloudflare AI/Vectorize 和托管推送订阅不在本地复刻。以上边界也列在部署和客户端文档中。源码 lint 为 0 警告、0 错误；打包仍有上游 source map 定位、第三方 PURE 注释和包体大小提示，构建成功且浏览器验收未发现运行时错误。
 
@@ -43,5 +43,5 @@ Windows 安装后的注册检查见 [客户端说明](../native/desktop/README.z
 
 ## 本次 Windows 产物 SHA-256
 
-- `Zero Mail Setup 0.2.0.exe`：`d882f1dc0a2abb75782f2801a41a9aa9b335459b394794cd668b1ca412c9a059`
-- `Zero Mail-0.2.0-win.zip`：`282e122ea1fe144e147a392761d47bbb358063a0e1dde134da5dd307c679a9cb`
+- `Zero Mail Setup 0.2.0.exe`：`4d3d770487fe14d06c446830f8a7edb218b301948685fbbd37a087cbac62c569`
+- `Zero Mail-0.2.0-win.zip`：`8ea70be7a9088739e75929fdf729f9e19e3e15d7eb8ae0331d800caa6ea53f08`

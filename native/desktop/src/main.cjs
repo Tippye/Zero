@@ -12,9 +12,9 @@ const {
 } = require('electron');
 const { readFile, writeFile, mkdir, rename, appendFile } = require('node:fs/promises');
 const { NotificationFeed } = require('./notifications.cjs');
+const { join, normalize } = require('node:path');
 const { createHash } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
-const { join } = require('node:path');
 
 const testProfile = process.env.ZERO_DESKTOP_TEST_PROFILE;
 if (testProfile) app.setPath('userData', testProfile);
@@ -26,6 +26,18 @@ function record(event, details = {}) {
     ).catch(() => {});
 }
 app.setAppUserModelId('org.zero.mail');
+async function isDefaultMail() {
+  try {
+    if (process.platform === 'win32') {
+      // NSIS registers ZeroMail.mailto, which differs from Electron's own ProgID.
+      const handler = await app.getApplicationInfoForProtocol('mailto:');
+      return normalize(handler.path).toLowerCase() === normalize(app.getPath('exe')).toLowerCase();
+    }
+    return app.isDefaultProtocolClient('mailto');
+  } catch {
+    return false;
+  }
+}
 const locked = app.requestSingleInstanceLock();
 if (!locked) {
   app.quit();
@@ -318,10 +330,10 @@ if (!locked) {
       return fn(...args);
     });
   }
-  handle('zero:settings', () => ({
+  handle('zero:settings', async () => ({
     ...config,
     notificationsSupported: Notification.isSupported(),
-    defaultMail: app.isDefaultProtocolClient('mailto'),
+    defaultMail: await isDefaultMail(),
     version: app.getVersion(),
     platform: process.platform,
   }));
@@ -382,7 +394,7 @@ if (!locked) {
       record('ready', {
         platform: process.platform,
         notifications: Notification.isSupported(),
-        defaultMail: app.isDefaultProtocolClient('mailto'),
+        defaultMail: await isDefaultMail(),
       });
       if (testProfile && process.env.ZERO_DESKTOP_TEST_NOTIFICATION === '1') notify({}, true);
     })
