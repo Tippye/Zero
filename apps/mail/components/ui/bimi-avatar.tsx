@@ -1,5 +1,5 @@
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from './avatar';
-import { useState, useCallback, useMemo } from 'react';
 import { useTRPC } from '@/providers/query-provider';
 import { useQuery } from '@tanstack/react-query';
 import { getEmailLogo } from '@/lib/utils';
@@ -29,11 +29,15 @@ export const BimiAvatar = ({
   const trpc = useTRPC();
   const [useDefaultFallback, setUseDefaultFallback] = useState(false);
 
-  const { data: bimiData, isLoading } = useQuery({
-    ...trpc.bimi.getByEmail.queryOptions({ email: email || '' }),
-    enabled: !!email && !useDefaultFallback,
-    staleTime: 1000 * 60 * 60 * 24, // Cache for 24 hours
-    gcTime: 1000 * 60 * 60 * 24 * 7, // Keep in cache for 7 days
+  const domain = email?.split('@')[1]?.toLowerCase() || '';
+  useEffect(() => setUseDefaultFallback(false), [email]);
+  const { data: bimiData } = useQuery({
+    ...trpc.bimi.getByDomain.queryOptions({ domain }),
+    enabled: !!domain,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 60 * 24,
+    retry: false,
+    meta: { noGlobalError: true },
   });
 
   const fallbackImageSrc = useMemo(() => {
@@ -63,7 +67,7 @@ export const BimiAvatar = ({
 
   return (
     <Avatar className={className}>
-      {bimiData?.logo?.svgContent && !isLoading ? (
+      {bimiData?.logo?.svgContent ? (
         <div
           className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white dark:bg-[#373737]"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bimiData.logo.svgContent) }}
@@ -75,14 +79,8 @@ export const BimiAvatar = ({
           alt={name || email}
           onError={handleFallbackImageError}
         />
-      ) : getEmailLogo(email) ? (
-        <AvatarImage
-          className="rounded-full bg-[#FFFFFF] dark:bg-[#373737]"
-          src={getEmailLogo(email)}
-          alt={name || email}
-          onError={handleFallbackImageError}
-        />
-      ) : (
+      ) : null}
+      {!bimiData?.logo?.svgContent && (
         <AvatarFallback className={fallbackClassName}>{firstLetter}</AvatarFallback>
       )}
     </Avatar>
