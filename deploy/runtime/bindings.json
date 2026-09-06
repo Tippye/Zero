@@ -1,0 +1,34 @@
+{
+  "kv": [
+    "gmail_history_id",
+    "gmail_processing_threads",
+    "subscribed_accounts",
+    "connection_labels",
+    "prompts_storage",
+    "gmail_sub_age",
+    "pending_emails_status",
+    "pending_emails_payload",
+    "scheduled_emails",
+    "snoozed_emails"
+  ],
+  "objects": {
+    "ZERO_AGENT": "ZeroAgent",
+    "ZERO_MCP": "ZeroMCP",
+    "ZERO_DB": "ZeroDB",
+    "ZERO_DRIVER": "ZeroDriver",
+    "THINKING_MCP": "ThinkingMCP",
+    "WORKFLOW_RUNNER": "WorkflowRunner",
+    "THREAD_SYNC_WORKER": "ThreadSyncWorker",
+    "SHARD_REGISTRY": "ShardRegistry"
+  },
+  "workflows": {
+    "SYNC_THREADS_WORKFLOW": {
+      "name": "sync-threads-workflow",
+      "className": "SyncThreadsWorkflow"
+    },
+    "SYNC_THREADS_COORDINATOR_WORKFLOW": {
+      "name": "sync-threads-coordinator-workflow",
+      "className": "SyncThreadsCoordinatorWorkflow"
+    }
+  }
+}

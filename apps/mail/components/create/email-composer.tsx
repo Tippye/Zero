@@ -845,7 +845,7 @@ export function EmailComposer({
                 <CurvedArrow className="mt-1.5 h-4 w-4 fill-white dark:fill-black" />
               </div>
             </Button>
-            {senderAccount?.providerId !== 'imap' && <ScheduleSendPicker
+            {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH !== 'required' && senderAccount?.providerId !== 'imap' && <ScheduleSendPicker
               value={scheduleAt}
               onChange={handleScheduleChange}
               onValidityChange={handleScheduleValidityChange}

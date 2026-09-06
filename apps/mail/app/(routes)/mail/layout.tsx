@@ -10,7 +10,7 @@ export default function MailLayout() {
       <div className="bg-sidebar dark:bg-sidebar w-full">
         <Outlet />
       </div>
-      <OnboardingWrapper />
+      {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH !== 'required' && <OnboardingWrapper />}
     </HotkeyProviderWrapper>
   );
 }

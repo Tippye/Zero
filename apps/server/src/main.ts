@@ -1,3 +1,4 @@
+import { desktopRouter } from './routes/desktop';
 import {
   createUpdatedMatrixFromNewEmail,
   initializeStyleMatrixFromEmail,
@@ -726,6 +727,7 @@ const api = new Hono<HonoContext>()
   .route('/ai', aiRouter)
   .route('/autumn', autumnApi)
   .route('/public', publicRouter)
+  .route('/desktop', desktopRouter)
   .on(['GET', 'POST', 'OPTIONS'], '/auth/*', (c) => {
     return c.var.auth.handler(c.req.raw);
   })
@@ -835,6 +837,18 @@ const app = new Hono<HonoContext>()
     { replaceRequest: false },
   )
   .route('/api', api)
+  .use('/agents/*', async (c, next) => {
+    if (env.SELF_HOSTED_AUTH === 'required') {
+      const session = await createAuth().api.getSession({ headers: c.req.raw.headers });
+      if (!session?.user) return c.json({ error: 'Unauthorized' }, 401);
+      const parts = new URL(c.req.url).pathname.split('/');
+      if (parts[2] !== 'zero-agent' || !parts[3]) return c.json({ error: 'Not found' }, 404);
+      const db = await getZeroDB(session.user.id);
+      const owned = await db.findUserConnection(decodeURIComponent(parts[3]));
+      if (!owned) return c.json({ error: 'Not found' }, 404);
+    }
+    return next();
+  })
   .use(
     '*',
     agentsMiddleware({

@@ -64,3 +64,15 @@ tools.json
 # Editor swap files may contain local secrets
 *.swp
 *.swo
+
+# Self-hosted deployment secrets and local desktop artifacts
+/deploy/.env
+/deploy/tls/
+/native/desktop/release/
+
+/native/desktop/release-windows/
+
+# Source assets used by the Windows installer (not generated build output)
+!/native/desktop/build/
+!/native/desktop/build/icon.png
+!/native/desktop/build/installer.nsh

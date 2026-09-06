@@ -489,7 +489,11 @@ export const mailRouter = router({
 
       const db = await getZeroDB(sessionUser.id);
       const userSettings = await db.findUserSettings();
-      const undoSendEnabled = userSettings?.settings?.undoSendEnabled ?? false;
+      // Standalone queue emulation does not persist delayed delivery across restarts.
+      if (env.SELF_HOSTED_AUTH === 'required' && scheduleAt) {
+        return { success: false, error: 'Scheduled sending is unavailable on this server' } as const;
+      }
+      const undoSendEnabled = env.SELF_HOSTED_AUTH !== 'required' && (userSettings?.settings?.undoSendEnabled ?? false);
       const shouldSchedule = !!scheduleAt || undoSendEnabled;
 
       const afterTask = async () => {

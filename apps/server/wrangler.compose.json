@@ -1,0 +1,76 @@
+{
+  "name": "zero-compose",
+  "main": "src/main.ts",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.sql"],
+      "fallthrough": true
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ZERO_AGENT",
+        "class_name": "ZeroAgent"
+      },
+      {
+        "name": "ZERO_MCP",
+        "class_name": "ZeroMCP"
+      },
+      {
+        "name": "ZERO_DB",
+        "class_name": "ZeroDB"
+      },
+      {
+        "name": "ZERO_DRIVER",
+        "class_name": "ZeroDriver"
+      },
+      {
+        "name": "THINKING_MCP",
+        "class_name": "ThinkingMCP"
+      },
+      {
+        "name": "WORKFLOW_RUNNER",
+        "class_name": "WorkflowRunner"
+      },
+      {
+        "name": "THREAD_SYNC_WORKER",
+        "class_name": "ThreadSyncWorker"
+      },
+      {
+        "name": "SHARD_REGISTRY",
+        "class_name": "ShardRegistry"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "compose-v1",
+      "new_sqlite_classes": [
+        "ZeroAgent",
+        "ZeroMCP",
+        "ZeroDB",
+        "ZeroDriver",
+        "ThinkingMCP",
+        "WorkflowRunner",
+        "ThreadSyncWorker",
+        "ShardRegistry"
+      ]
+    }
+  ],
+  "workflows": [
+    {
+      "binding": "SYNC_THREADS_WORKFLOW",
+      "class_name": "SyncThreadsWorkflow",
+      "name": "sync-threads-workflow"
+    },
+    {
+      "binding": "SYNC_THREADS_COORDINATOR_WORKFLOW",
+      "class_name": "SyncThreadsCoordinatorWorkflow",
+      "name": "sync-threads-coordinator-workflow"
+    }
+  ]
+}

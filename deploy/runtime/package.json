@@ -1,0 +1,13 @@
+{
+  "name": "zero-selfhost-runtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "migrate": "node migrate.mjs"
+  },
+  "dependencies": {
+    "miniflare": "4.20250816.1",
+    "postgres": "3.4.5"
+  }
+}

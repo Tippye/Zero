@@ -311,9 +311,16 @@
 }
 
 .ͼo.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground,
-.ͼo.cm-selectionBackground,
-.ͼo.cm-content::selection {
+.ͼo.cm-selectionBackground {
   @apply bg-zinc-200! dark:bg-zinc-900!;
+}
+
+.ͼo.cm-content::selection {
+  background-color: var(--color-zinc-200) !important;
+}
+
+.dark .ͼo.cm-content::selection {
+  background-color: var(--color-zinc-900) !important;
 }
 
 .cm-activeLine,

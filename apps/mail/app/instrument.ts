@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/react';
 
-Sentry.init({
+if (import.meta.env.VITE_PUBLIC_SELF_HOSTED !== 'true') Sentry.init({
   dsn: 'https://03f6397c0eb458bf1e37c4776a31797c@o4509328786915328.ingest.us.sentry.io/4509328795303936',
   tunnel: import.meta.env.VITE_PUBLIC_BACKEND_URL + '/monitoring/sentry',
   integrations: [Sentry.replayIntegration()],

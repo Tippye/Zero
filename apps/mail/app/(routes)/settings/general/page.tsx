@@ -356,11 +356,11 @@ export default function GeneralPage() {
               render={renderZeroSignatureField}
             />
             <FormField control={form.control} name="autoRead" render={renderAutoReadField} />
-            <FormField
+            {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH !== 'required' && <FormField
               control={form.control}
               name="undoSendEnabled"
               render={renderUndoSendEnabledField}
-            />
+            />}
             <FormField control={form.control} name="animations" render={renderAnimationsField} />
           </div>
         </SettingsCard>

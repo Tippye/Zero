@@ -9,7 +9,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
 
   useEffect(() => {
-    if (!import.meta.env.VITE_PUBLIC_POSTHOG_KEY) return;
+    if (import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true' || !import.meta.env.VITE_PUBLIC_POSTHOG_KEY) return;
     try {
       posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY as string, {
         api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
@@ -21,6 +21,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true') return;
     if (session?.user) {
       posthog.identify(session.user.id, {
         email: session.user.email,

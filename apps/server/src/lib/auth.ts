@@ -24,6 +24,8 @@ import { Autumn } from 'autumn-js';
 import { createDb } from '../db';
 import { Effect } from 'effect';
 import { env } from '../env';
+import { getContext } from 'hono/context-storage';
+import { selfHostedOrigin } from './selfhost';
 import { Dub } from 'dub';
 
 const scheduleCampaign = (userInfo: { address: string; name: string }) =>
@@ -89,6 +91,7 @@ const scheduleCampaign = (userInfo: { address: string; name: string }) =>
   });
 
 const connectionHandlerHook = async (account: Account) => {
+  if (account.providerId === 'credential') return;
   if (!account.accessToken || !account.refreshToken) {
     console.error('Missing Access/Refresh Tokens', { account });
     throw new APIError('EXPECTATION_FAILED', {
@@ -143,7 +146,7 @@ const connectionHandlerHook = async (account: Account) => {
     updatingInfo,
   );
 
-  if (env.NODE_ENV === 'production') {
+  if (env.NODE_ENV === 'production' && env.SELF_HOSTED !== 'true') {
     await Effect.runPromise(
       scheduleCampaign({ address: userInfo.address, name: userInfo.name || 'there' }),
     );
@@ -162,14 +165,12 @@ export const createAuth = () => {
 
   return betterAuth({
     plugins: [
-      ...(env.SELF_HOSTED === 'true' ? [anonymous({
+      ...(env.SELF_HOSTED === 'true' && env.SELF_HOSTED_AUTH !== 'required' ? [anonymous({
         emailDomainName: 'guest.zero.local',
         generateName: () => '本机邮箱用户',
         disableDeleteAnonymousUser: true,
       })] : []),
-      dubAnalytics({
-        dubClient: dub,
-      }),
+      ...(env.SELF_HOSTED === 'true' ? [] : [dubAnalytics({ dubClient: dub })]),
       mcp({
         loginPage: env.VITE_PUBLIC_APP_URL + '/login',
       }),
@@ -264,8 +265,9 @@ export const createAuth = () => {
       },
     },
     emailAndPassword: {
-      enabled: false,
-      requireEmailVerification: true,
+      enabled: env.SELF_HOSTED_AUTH === 'required',
+      disableSignUp: env.SELF_HOSTED_AUTH === 'required',
+      requireEmailVerification: env.SELF_HOSTED_AUTH !== 'required',
       sendResetPassword: async ({ user, url }) => {
         await resend().emails.send({
           from: '0.email <onboarding@0.email>',
@@ -333,8 +335,13 @@ export const createAuth = () => {
 
 const createAuthConfig = () => {
   const cache = redis();
+  let externalOrigin = env.VITE_PUBLIC_BACKEND_URL;
+  if (env.SELF_HOSTED_AUTH === 'required') {
+    try { externalOrigin = selfHostedOrigin(getContext().req.raw, env); } catch { /* Outside request context. */ }
+  }
   const { db } = createDb(env.HYPERDRIVE.connectionString);
   return {
+    secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: 'pg' }),
     secondaryStorage: {
       get: async (key: string) => {
@@ -353,14 +360,15 @@ const createAuthConfig = () => {
       ipAddress: {
         disableIpTracking: true,
       },
-      cookiePrefix: env.NODE_ENV === 'development' ? 'better-auth-dev' : 'better-auth',
+      cookiePrefix: env.SELF_HOSTED_AUTH === 'required' ? (externalOrigin.startsWith('https:') ? 'zero-secure' : 'zero-http') : env.NODE_ENV === 'development' ? 'better-auth-dev' : 'better-auth',
+      ...(env.SELF_HOSTED_AUTH === 'required' ? { useSecureCookies: externalOrigin.startsWith('https:') } : {}),
       crossSubDomainCookies: {
-        enabled: true,
+        enabled: env.SELF_HOSTED_AUTH !== 'required',
         domain: env.COOKIE_DOMAIN,
       },
     },
-    baseURL: env.VITE_PUBLIC_BACKEND_URL,
-    trustedOrigins: [
+    baseURL: externalOrigin,
+    trustedOrigins: env.SELF_HOSTED_AUTH === 'required' ? (env.AUTH_ORIGINS || externalOrigin).split(',').map(s => s.trim()) : [
       env.VITE_PUBLIC_APP_URL,
       'https://app.0.email',
       'https://sapi.0.email',

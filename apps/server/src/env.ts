@@ -67,6 +67,8 @@ export type ZeroEnv = {
   OPENAI_API_KEY: string;
   OPENAI_BASE_URL?: string;
   SELF_HOSTED?: string;
+  SELF_HOSTED_AUTH?: string;
+  AUTH_ORIGINS?: string;
   OPENAI_EMBEDDING_MODEL?: string;
   OPENAI_URL?: string;
   OPEN_URL?: string;

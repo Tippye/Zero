@@ -281,6 +281,13 @@
       "when": 1788626464425,
       "tag": "0038_user_llm_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1788650000000,
+      "tag": "0039_selfhost_identity",
+      "breakpoints": true
     }
   ]
 }

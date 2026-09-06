@@ -3,23 +3,40 @@ import { cloudflare } from '@cloudflare/vite-plugin';
 import { reactRouter } from '@react-router/dev/vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import oxlintPlugin from 'vite-plugin-oxlint';
+import tailwindcss from '@tailwindcss/vite';
 import babel from 'vite-plugin-babel';
-import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from 'vite';
 import dedent from 'dedent';
+
+if (process.env.ZERO_COMPOSE_BUILD === 'true')
+  Object.assign(globalThis, { __ZERO_ORIGIN__: 'http://localhost' });
 
 const ReactCompilerConfig = {
   /* ... */
 };
 
 export default defineConfig({
+  define:
+    process.env.ZERO_COMPOSE_BUILD === 'true'
+      ? {
+          'import.meta.env.VITE_PUBLIC_APP_URL': 'globalThis.__ZERO_ORIGIN__',
+          'import.meta.env.VITE_PUBLIC_BACKEND_URL': 'globalThis.__ZERO_ORIGIN__',
+          'import.meta.env.VITE_PUBLIC_SELF_HOSTED': '"true"',
+          'import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH': '"required"',
+        }
+      : {},
   plugins: [
-    oxlintPlugin(),
+    oxlintPlugin({
+      params:
+        '--ignore-pattern=**/node_modules/** --ignore-pattern=**/build/** --ignore-pattern=**/.react-router/**',
+    }),
     reactRouter(),
     cloudflare(),
     babel({
       filter: /\.[jt]sx?$/,
+      exclude: /node_modules/,
       babelConfig: {
+        sourceMaps: true,
         presets: ['@babel/preset-typescript'], // if you use TypeScript
         plugins: [['babel-plugin-react-compiler', ReactCompilerConfig]],
       },

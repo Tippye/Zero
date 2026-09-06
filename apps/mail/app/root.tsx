@@ -65,6 +65,7 @@ export function Layout({ children }: PropsWithChildren) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
+        {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' && <script src="/runtime-config.js" />}
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
@@ -79,11 +80,11 @@ export function Layout({ children }: PropsWithChildren) {
       <body className="antialiased">
         <ServerProviders connectionId={null}>
           <ClientProviders>{children}</ClientProviders>
-          <DubAnalytics
+          {import.meta.env.VITE_PUBLIC_SELF_HOSTED !== 'true' && <DubAnalytics
             domainsConfig={{
               refer: 'mail0.com',
             }}
-          />
+          />}
         </ServerProviders>
         <ScrollRestoration />
         <Scripts />

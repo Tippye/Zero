@@ -55,7 +55,8 @@ export async function imapBridge<T>(ownerId: string, action: string, input: unkn
   } catch {
     throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Invalid IMAP_BRIDGE_URL.' });
   }
-  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+    (env.SELF_HOSTED_AUTH === 'required' && url.hostname === 'imap-bridge' && url.port === '3033');
   if (url.username || url.password || url.search || url.hash || (url.protocol !== 'https:' && !(local && url.protocol === 'http:'))) {
     throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'The bridge requires HTTPS, except for a local development loopback address.' });
   }
