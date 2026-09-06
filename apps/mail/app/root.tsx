@@ -1,3 +1,4 @@
+import '@/lib/locale-strategy';
 import {
   isRouteErrorResponse,
   Links,
@@ -54,8 +55,15 @@ export const meta: MetaFunction = () => {
 };
 
 export function Layout({ children }: PropsWithChildren) {
+  const locale = getLocale();
+
+  useEffect(() => {
+    // The SPA HTML is prerendered in English; hydration preserves its attributes.
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   return (
-    <html lang={getLocale()} suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -84,13 +92,14 @@ export function Layout({ children }: PropsWithChildren) {
   );
 }
 
-// export function HydrateFallback() {
-//   return (
-//     <div className="flex h-screen w-full items-center justify-center">
-//       <Loader2 className="h-10 w-10 animate-spin" />
-//     </div>
-//   );
-// }
+export function HydrateFallback() {
+  // SPA mode uses only the root fallback while client loaders are running.
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center" role="status">
+      <span suppressHydrationWarning>{m['common.actions.loading']()}</span>
+    </div>
+  );
+}
 
 export default function App() {
   return <Outlet />;

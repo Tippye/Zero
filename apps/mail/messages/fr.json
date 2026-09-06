@@ -669,5 +669,25 @@
     "required_scopes_missing": "Il nous manque les autorisations nécessaires pour créer votre expérience complète. Veuillez vous reconnecter et autoriser l'accès demandé.",
     "early_access_required": "L'accès anticipé est requis pour se connecter",
     "unauthorized": "Zero n'a pas pu charger vos données depuis le fournisseur tiers. Veuillez réessayer."
-  }
+  },
+  "mailCategories": {
+    "primary": "Principale",
+    "transactions": "Transactions",
+    "updates": "Mises à jour",
+    "promotions": "Promotions",
+    "all": "Tous"
+  },
+  "mailCategories.moveTo": "Move to category",
+  "mailCategories.moved": "Email category updated",
+  "mailCategories.moveFailed": "Could not move this email. Sync your mailbox and try again.",
+  "mailCategories.learning": "Let AI learn my classification preferences",
+  "mailCategories.learningDescription": "Use recent manual classifications from this mailbox to improve future AI classification. Only sender and subject are sent to your configured AI model. Off by default; turning it off stops using history but keeps your manual choices.",
+  "mailCategories.learningSaveFailed": "Could not save the learning preference",
+  "mailContent.retry": "Could not load the message. Click to retry.",
+  "mailAi.translationPanel": "Email translation",
+  "mailAi.showOriginal": "Cancel translation and show original",
+  "mailAi.showTranslation": "Show translated email",
+  "mailRead.failed": "Could not read the message. The mailbox may be busy; please retry shortly.",
+  "mailRead.retry": "Retry reading",
+  "mailRead.retrying": "The mailbox is temporarily unavailable. Waiting before retrying…"
 }

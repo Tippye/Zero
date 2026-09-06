@@ -669,5 +669,25 @@
     "required_scopes_missing": "У нас отсутствуют разрешения, необходимые для полного использования всех функций. Пожалуйста, войдите снова и предоставьте запрашиваемый доступ.",
     "early_access_required": "Для входа требуется ранний доступ",
     "unauthorized": "Zero не удалось загрузить ваши данные от стороннего поставщика. Пожалуйста, попробуйте снова."
-  }
+  },
+  "mailCategories": {
+    "primary": "Основные",
+    "transactions": "Транзакции",
+    "updates": "Обновления",
+    "promotions": "Промоакции",
+    "all": "Все"
+  },
+  "mailCategories.moveTo": "Move to category",
+  "mailCategories.moved": "Email category updated",
+  "mailCategories.moveFailed": "Could not move this email. Sync your mailbox and try again.",
+  "mailCategories.learning": "Let AI learn my classification preferences",
+  "mailCategories.learningDescription": "Use recent manual classifications from this mailbox to improve future AI classification. Only sender and subject are sent to your configured AI model. Off by default; turning it off stops using history but keeps your manual choices.",
+  "mailCategories.learningSaveFailed": "Could not save the learning preference",
+  "mailContent.retry": "Could not load the message. Click to retry.",
+  "mailAi.translationPanel": "Email translation",
+  "mailAi.showOriginal": "Cancel translation and show original",
+  "mailAi.showTranslation": "Show translated email",
+  "mailRead.failed": "Could not read the message. The mailbox may be busy; please retry shortly.",
+  "mailRead.retry": "Retry reading",
+  "mailRead.retrying": "The mailbox is temporarily unavailable. Waiting before retrying…"
 }

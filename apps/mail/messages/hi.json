@@ -669,5 +669,25 @@
     "required_scopes_missing": "आपके पूर्ण अनुभव को बनाने के लिए आवश्यक अनुमतियां हमारे पास नहीं हैं। कृपया फिर से साइन इन करें और अनुरोधित पहुंच की अनुमति दें।",
     "early_access_required": "लॉग इन करने के लिए अर्ली एक्सेस आवश्यक है",
     "unauthorized": "Zero तृतीय पक्ष प्रदाता से आपका डेटा लोड नहीं कर सका। कृपया पुनः प्रयास करें।"
-  }
+  },
+  "mailCategories": {
+    "primary": "मुख्य",
+    "transactions": "लेन-देन",
+    "updates": "अपडेट",
+    "promotions": "प्रचार",
+    "all": "सभी"
+  },
+  "mailCategories.moveTo": "Move to category",
+  "mailCategories.moved": "Email category updated",
+  "mailCategories.moveFailed": "Could not move this email. Sync your mailbox and try again.",
+  "mailCategories.learning": "Let AI learn my classification preferences",
+  "mailCategories.learningDescription": "Use recent manual classifications from this mailbox to improve future AI classification. Only sender and subject are sent to your configured AI model. Off by default; turning it off stops using history but keeps your manual choices.",
+  "mailCategories.learningSaveFailed": "Could not save the learning preference",
+  "mailContent.retry": "Could not load the message. Click to retry.",
+  "mailAi.translationPanel": "Email translation",
+  "mailAi.showOriginal": "Cancel translation and show original",
+  "mailAi.showTranslation": "Show translated email",
+  "mailRead.failed": "Could not read the message. The mailbox may be busy; please retry shortly.",
+  "mailRead.retry": "Retry reading",
+  "mailRead.retrying": "The mailbox is temporarily unavailable. Waiting before retrying…"
 }
