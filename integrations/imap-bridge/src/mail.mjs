@@ -29,6 +29,14 @@ export class MailService {
     });
     client.on?.('error', () => {}); // Operation promises carry errors; never log credentials/source.
     try { await client.connect(); return await fn(client); }
+    catch (error) {
+      if (error instanceof BridgeError) throw error;
+      if (error.authenticationFailed) throw new BridgeError('AUTH_FAILED', 'Mailbox authorization failed. Check the IMAP authorization code in connection settings.', 422);
+      if (['ETIMEDOUT', 'ETIMEOUT', 'CONNECT_TIMEOUT', 'GREETING_TIMEOUT'].includes(error.code) || /timeout|timed out/i.test(error.message || '')) {
+        throw new BridgeError('UPSTREAM_TIMEOUT', 'The mailbox provider timed out. Please retry.', 504);
+      }
+      throw error;
+    }
     finally {
       let timer;
       try {
@@ -89,19 +97,41 @@ export class MailService {
         if (starred) query.flagged = true;
         if ((input.labelIds || []).includes('UNREAD')) query.seen = false;
         if ((input.labelIds || []).includes('STARRED')) query.flagged = true;
-        ensure((input.labelIds || []).every((id) => ['UNREAD', 'STARRED', 'INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'ARCHIVE'].includes(id)), 'NOT_SUPPORTED', 'Gmail categories/custom labels are not IMAP search filters', 422);
+        if ((input.labelIds || []).includes('IMPORTANT')) query.keyword = '$Important';
+        ensure((input.labelIds || []).every((id) => ['UNREAD', 'STARRED', 'IMPORTANT', 'INBOX', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'ARCHIVE'].includes(id)), 'NOT_SUPPORTED', 'Gmail categories/custom labels are not IMAP search filters', 422);
         if (input.query) query.text = text(input.query, 'search text', 512);
         if (cursor) query.uid = `1:${cursor.uid - 1}`;
-        const found = await client.search(query, { uid: true });
-        const { selected, hasMore } = pageUids(found || [], cursor?.uid, limit);
+        const fields = { uid: true, envelope: true, flags: true, internalDate: true };
+        const filtered = starred || query.seen === false || query.flagged || query.keyword || query.text;
+        let messages, selected, hasMore;
+        let sequenceEnd = client.mailbox.exists;
+        if (!filtered && cursor) {
+          // UIDs survive expunges; resolve the cursor's current sequence position each time.
+          const anchor = await client.fetchOne(cursor.uid, { uid: true }, { uid: true });
+          sequenceEnd = anchor && Number.isInteger(anchor.seq) ? anchor.seq - 1 : null;
+        }
+        if (!filtered && sequenceEnd !== null) {
+          if (sequenceEnd < 1) return { threads: [], nextPageToken: null };
+          // QQ can take many seconds to SEARCH ALL. Fetch only the newest page plus
+          // one item for pagination. Sequence numbers are never exposed as message IDs.
+          const start = Math.max(1, sequenceEnd - limit);
+          messages = await client.fetchAll(`${start}:${sequenceEnd}`, fields, { uid: false });
+          ({ selected, hasMore } = pageUids(messages.map(m => m.uid), cursor?.uid, limit));
+        } else {
+          // Search is needed for filters, or if the cursor message was deleted.
+          const found = await client.search(query, { uid: true });
+          ({ selected, hasMore } = pageUids(found || [], cursor?.uid, limit));
+          if (!selected.length) return { threads: [], nextPageToken: null };
+          // Never issue another command from within an ImapFlow fetch() generator.
+          messages = await client.fetchAll(selected.join(','), fields, { uid: true });
+        }
         if (!selected.length) return { threads: [], nextPageToken: null };
-        // Never issue another command from within an ImapFlow fetch() generator.
-        const messages = await client.fetchAll(selected.join(','), { uid: true, envelope: true, flags: true, internalDate: true }, { uid: true });
         const byUid = new Map(messages.map((m) => [m.uid, m]));
         return {
           threads: selected.filter((uid) => byUid.has(uid)).map((uid) => ({
             id: messageId(folder, validity, uid), historyId: null,
             $raw: { subject: byUid.get(uid).envelope?.subject || '', uid, folder,
+              from: addressList(byUid.get(uid).envelope?.from), to: addressList(byUid.get(uid).envelope?.to), cc: addressList(byUid.get(uid).envelope?.cc), bcc: addressList(byUid.get(uid).envelope?.bcc),
               sender: addressList(byUid.get(uid).envelope?.from).map((a) => a.name || a.email).join(', '),
               receivedOn: new Date(byUid.get(uid).internalDate || byUid.get(uid).envelope?.date || 0).toISOString(),
               unread: !byUid.get(uid).flags?.has('\\Seen'), starred: !!byUid.get(uid).flags?.has('\\Flagged') },
@@ -109,6 +139,40 @@ export class MailService {
           nextPageToken: hasMore ? messageId(folder, validity, selected.at(-1)) : null,
         };
       });
+    });
+  }
+  // Background indexing uses a separate read-only connection. It never marks mail read.
+  async snapshot(account, { limit = 500 } = {}) {
+    ensure(Number.isInteger(limit) && limit >= 50 && limit <= 5000, 'INVALID_INPUT', 'Invalid cache limit');
+    return this.withClient(account, async client => {
+      const available = await this.folders(client);
+      const result = [];
+      for (const folder of ['inbox', 'sent', 'draft', 'archive', 'spam', 'bin']) {
+        const path = folder === 'inbox' ? 'INBOX' : available.find(f => f.specialUse === SYSTEM_FOLDERS[folder])?.path;
+        if (!path) { result.push({ folder, threads: [] }); continue; }
+        try {
+          const lock = await client.getMailboxLock(path, { readOnly: true });
+          try {
+            const count = client.mailbox.exists, validity = String(client.mailbox.uidValidity);
+            const threads = [];
+            // Envelope-only bounded windows; no SEARCH ALL, bodies, or attachments.
+            for (let end = count; end > Math.max(0, count - limit); end -= 100) {
+              const start = Math.max(1, count - limit + 1, end - 99);
+              const rows = await client.fetchAll(`${start}:${end}`, { uid: true, envelope: true, flags: true, internalDate: true }, { uid: false });
+              for (const row of rows) threads.push({
+                id: messageId(path, validity, row.uid),
+                subject: row.envelope?.subject || '', from: addressList(row.envelope?.from),
+                to: addressList(row.envelope?.to), cc: addressList(row.envelope?.cc), bcc: addressList(row.envelope?.bcc),
+                receivedOn: new Date(row.internalDate || row.envelope?.date || 0).toISOString(),
+                unread: !row.flags?.has('\\Seen'), starred: !!row.flags?.has('\\Flagged'),
+                important: !!row.flags?.has('$Important'),
+              });
+            }
+            result.push({ folder, threads });
+          } finally { lock.release(); }
+        } catch { result.push({ folder, error: 'PROVIDER_UNAVAILABLE' }); }
+      }
+      return { folders: result };
     });
   }
   async source(client, uid) {
@@ -126,16 +190,30 @@ export class MailService {
       const fetched = await this.source(client, uid);
       if (raw) return fetched.source.toString('utf8');
       const parsed = await this.parseMail(fetched.source, { skipHtmlToText: true, skipTextToHtml: true, skipImageLinks: true });
-      const html = this.sanitize(parsed.html || `<pre>${escape(parsed.text || '')}</pre>`, {
-        allowedTags: ['p', 'br', 'div', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'hr', 'a'],
-        allowedAttributes: { a: ['href'], td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'] },
+      let html = this.sanitize(parsed.html || `<pre>${escape(parsed.text || '')}</pre>`, {
+        allowedTags: ['p', 'br', 'div', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'a', 'img', 'style', 'html', 'head', 'body', 'tfoot', 'caption', 'colgroup', 'col'],
+        // Preserve presentation for the reader's final HTML/CSS sanitization.
+        allowedAttributes: {
+          '*': ['class', 'id', 'style', 'align', 'valign', 'width', 'height', 'bgcolor', 'dir'],
+          a: ['href', 'name'], img: ['src', 'alt', 'width', 'height'],
+          table: ['cellpadding', 'cellspacing', 'border', 'width', 'align', 'bgcolor', 'style', 'class'],
+          td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
+        },
+        allowedSchemesByTag: { img: ['https', 'http', 'data', 'cid'] },
+        allowVulnerableTags: true,
         allowedSchemes: ['https', 'http', 'mailto'], allowProtocolRelative: false,
       });
+      for (const attachment of parsed.attachments || []) {
+        if (!attachment.cid || !/^image\/(png|jpeg|gif|webp)$/i.test(attachment.contentType || '')) continue;
+        const cid = attachment.cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        html = html.replace(new RegExp(`src="cid:${cid}"`, 'gi'), `src="data:${attachment.contentType};base64,${attachment.content.toString('base64')}"`);
+      }
       const folders = await this.folders(client);
       const special = folder.toUpperCase() === 'INBOX' ? '\\Inbox' : folders.find((f) => f.path === folder)?.specialUse;
       const names = [LABELS[special] || folder];
       if (!fetched.flags?.has('\\Seen')) names.push('UNREAD');
       if (fetched.flags?.has('\\Flagged')) names.push('STARRED');
+      if (fetched.flags?.has('$Important')) names.push('IMPORTANT');
       if (fetched.flags?.has('\\Draft') && !names.includes('DRAFT')) names.push('DRAFT');
       const tags = names.map((name) => ({ id: name, name, type: 'system' }));
       const attachments = (parsed.attachments || []).map((item, index) => ({
@@ -168,7 +246,7 @@ export class MailService {
   async modify(account, ids, addLabels = [], removeLabels = []) {
     ensure(Array.isArray(ids) && ids.length > 0 && ids.length <= 100, 'INVALID_INPUT', 'Select 1–100 messages');
     ensure(Array.isArray(addLabels) && Array.isArray(removeLabels), 'INVALID_INPUT', 'Labels must be arrays');
-    const supported = ['UNREAD', 'STARRED', 'INBOX', 'TRASH', 'SPAM', 'ARCHIVE'];
+    const supported = ['UNREAD', 'STARRED', 'IMPORTANT', 'INBOX', 'TRASH', 'SPAM', 'ARCHIVE'];
     ensure([...addLabels, ...removeLabels].every((label) => supported.includes(label)), 'NOT_SUPPORTED', 'IMAP supports read/star state and folder moves, not Gmail-specific labels', 422);
     const destinationLabels = addLabels.filter((l) => ['INBOX', 'TRASH', 'SPAM', 'ARCHIVE'].includes(l));
     ensure(destinationLabels.length <= 1, 'INVALID_INPUT', 'Choose one destination folder');
@@ -181,6 +259,8 @@ export class MailService {
         await this.locked(client, folder, validity, async () => {
           if (destination && destination !== folder) ensure(client.capabilities.has('MOVE'), 'NOT_SUPPORTED', 'Server must support atomic IMAP MOVE', 422);
           ensure(await client.fetchOne(uid, { uid: true }, { uid: true }), 'MESSAGE_NOT_FOUND', 'Message no longer exists', 404);
+          if (addLabels.includes('IMPORTANT')) await client.messageFlagsAdd(uid, ['$Important'], { uid: true });
+          if (removeLabels.includes('IMPORTANT')) await client.messageFlagsRemove(uid, ['$Important'], { uid: true });
           if (addLabels.includes('UNREAD')) await client.messageFlagsRemove(uid, ['\\Seen'], { uid: true });
           if (removeLabels.includes('UNREAD')) await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true });
           if (addLabels.includes('STARRED')) await client.messageFlagsAdd(uid, ['\\Flagged'], { uid: true });
@@ -207,13 +287,13 @@ export class MailService {
       });
     });
   }
-  outgoing(account, data) {
+  outgoing(account, data, draft = false) {
     const recipients = (items = []) => {
       ensure(Array.isArray(items) && items.length <= 100, 'INVALID_INPUT', 'Invalid recipients');
       return items.map((item) => ({ address: address(item.email), name: headerText(item.name || '', 'recipient name', 256, true) }));
     };
     const to = recipients(data.to), cc = recipients(data.cc), bcc = recipients(data.bcc);
-    ensure(to.length + cc.length + bcc.length > 0 && to.length + cc.length + bcc.length <= 100, 'INVALID_INPUT', 'Choose 1–100 recipients');
+    ensure((draft || to.length + cc.length + bcc.length > 0) && to.length + cc.length + bcc.length <= 100, 'INVALID_INPUT', 'Choose 1–100 recipients');
     ensure(!data.fromEmail || data.fromEmail.toLowerCase() === account.email.toLowerCase(), 'INVALID_INPUT', 'From must match the connected mailbox');
     const attachments = data.attachments || [];
     ensure(Array.isArray(attachments) && attachments.length <= 20, 'INVALID_INPUT', 'At most 20 attachments');
@@ -235,12 +315,51 @@ export class MailService {
       // Keep blind recipients in the SMTP envelope only. StreamTransport preserves
       // Bcc headers, so passing `bcc` here would disclose every blind recipient.
       envelope: { from: account.email, to: [...to, ...cc, ...bcc].map((item) => item.address) },
-      from: { address: account.email, name: account.name }, to, cc,
+      from: { address: account.email, name: account.name }, to, cc, ...(draft ? { bcc } : {}),
       subject: headerText(data.subject || '', 'subject', 998, true),
       html: text(data.message || '', 'message', 1024 * 1024, true), attachments: files, headers,
       messageId: `<${randomUUID()}@${account.email.split('@')[1]}>`,
       disableFileAccess: true, disableUrlAccess: true,
     };
+  }
+  async saveDraft(account, data) {
+    const recipients = value => (value || '').split(',').map(s => s.trim()).filter(Boolean).map(email => ({ email }));
+    const mail = this.outgoing(account, { ...data, fromEmail: account.email,
+      to: recipients(data.to), cc: recipients(data.cc), bcc: recipients(data.bcc) }, true);
+    const builder = this.mailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' });
+    let built;
+    try { built = await builder.sendMail(mail); } finally { builder.close(); }
+    return this.withClient(account, async client => {
+      const folder = await this.resolveFolder(client, 'draft');
+      const previous = data.id ? parseMessageId(data.id) : null;
+      ensure(!previous || previous.folder === folder, 'INVALID_INPUT', 'Only a draft can be replaced');
+      ensure(!previous || client.capabilities.has('UIDPLUS'), 'NOT_SUPPORTED', 'Safe draft replacement requires UIDPLUS', 422);
+      return this.locked(client, folder, previous?.validity || null, async () => {
+        // Append first. The previous draft survives if saving the replacement fails.
+        const result = await client.append(folder, built.message, ['\\Draft', '\\Seen']);
+        let uid = result?.uid;
+        if (!uid) {
+          const matches = await client.search({ header: { 'message-id': mail.messageId } }, { uid: true });
+          uid = matches?.at(-1);
+        }
+        ensure(uid, 'DRAFT_SAVE_UNCONFIRMED', 'Draft may have been saved. Refresh Drafts before retrying.', 409);
+        const newId = messageId(folder, String(client.mailbox.uidValidity), Number(uid));
+        if (previous && previous.uid !== Number(uid)) await client.messageDelete(previous.uid, { uid: true });
+        return { id: newId };
+      });
+    });
+  }
+  async deleteDraft(account, id) {
+    const previous = parseMessageId(id);
+    return this.withClient(account, async client => {
+      const folder = await this.resolveFolder(client, 'draft');
+      ensure(previous.folder === folder, 'INVALID_INPUT', 'Only drafts can be removed here');
+      ensure(client.capabilities.has('UIDPLUS'), 'NOT_SUPPORTED', 'Safe draft removal requires UIDPLUS', 422);
+      return this.locked(client, folder, previous.validity, async () => {
+        await client.messageDelete(previous.uid, { uid: true });
+        return { success: true };
+      });
+    });
   }
   async send(owner, accountId, account, data) {
     // Validate before writing the idempotency record so invalid input does not block a corrected draft.
@@ -255,6 +374,9 @@ export class MailService {
       try { info = await transport.sendMail({ envelope: built.envelope, raw: built.message, disableFileAccess: true, disableUrlAccess: true }); }
       catch { throw new BridgeError('SEND_UNCERTAIN', 'SMTP did not confirm delivery. Check Sent before attempting to resend.', 409); }
       finally { transport.close(); }
+      ensure((info.accepted || []).length > 0, 'SEND_REJECTED', 'SMTP did not accept any recipients', 422);
+      let draftRemoved = !data.draftId;
+      if (data.draftId) { try { await this.deleteDraft(account, data.draftId); draftRemoved = true; } catch { draftRemoved = false; } }
       let sentCopySaved = null;
       if (account.saveSent) {
         try {
@@ -266,7 +388,7 @@ export class MailService {
         } catch { sentCopySaved = false; }
       }
       return { id: mail.messageId, accepted: (info.accepted || []).map(String),
-        rejected: (info.rejected || []).map(String), sentCopySaved };
+        rejected: (info.rejected || []).map(String), sentCopySaved, draftRemoved };
     });
   }
 }

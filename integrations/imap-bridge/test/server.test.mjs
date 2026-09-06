@@ -79,3 +79,19 @@ test('HTTP RPC authenticates, validates body limits, and redacts upstream errors
   assert.equal(error.status, 502); assert.ok(!(await error.text()).includes('NEVER-RETURN'));
   assert.equal((await post({ payload: 'x'.repeat(300) })).status, 413);
 });
+
+test('draft operations validate mailbox ownership before accessing IMAP', async t => {
+  const calls = [];
+  const { bridge } = await fixture(t, { mail: { verify: async () => {}, saveDraft: async (a, input) => { calls.push(a.email); return { id: 'synthetic-draft' }; }, deleteDraft: async () => calls.push('delete') } });
+  const a = await bridge.call('owner', 'accounts.add', { email: 'a@qq.com', preset: 'qq', password: 'synthetic' });
+  await assert.rejects(bridge.call('other', 'drafts.save', { accountId: a.id }));
+  await assert.rejects(bridge.call('other', 'drafts.delete', { accountId: a.id, id: 'synthetic' }));
+  assert.equal(calls.length, 0);
+  assert.equal((await bridge.call('owner', 'drafts.save', { accountId: a.id })).id, 'synthetic-draft');
+});
+test('background snapshot is owned and independent of the interactive mailbox lock', async t=>{
+  const { bridge }=await fixture(t,{mail:{verify:async()=>{},snapshot:async()=>({folders:[]})}});
+  const a=await bridge.call('owner','accounts.add',{email:'a@qq.com',preset:'qq',password:'synthetic-code'});
+  await assert.rejects(bridge.call('other','sync.snapshot',{accountId:a.id}),e=>e.code==='ACCOUNT_NOT_FOUND');
+  assert.deepEqual(await bridge.call('owner','sync.snapshot',{accountId:a.id,limit:50}),{folders:[]});
+});

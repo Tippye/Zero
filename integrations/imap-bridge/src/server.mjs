@@ -86,10 +86,11 @@ export class Bridge {
       default:
         break;
     }
-    const methods = new Set(['mail.folders', 'mail.list', 'mail.get', 'mail.raw', 'mail.modify', 'mail.move', 'mail.send']);
+    const methods = new Set(['sync.snapshot', 'mail.folders', 'mail.list', 'mail.get', 'mail.raw', 'mail.modify', 'mail.move', 'mail.send', 'drafts.save', 'drafts.delete']);
     ensure(methods.has(action), 'NOT_SUPPORTED', 'Unknown bridge operation', 404);
     const account = await this.account(owner, input.accountId);
     // One live IMAP session per mailbox per bridge instance; cap global concurrency at the HTTP layer.
+    if (action === 'sync.snapshot') return this.mail.snapshot(account, input);
     return this.vault.exclusive(`mail:${owner}:${account.id}`, async () => {
       switch (action) {
         case 'mail.folders': return this.mail.getFolders(account);
@@ -98,6 +99,8 @@ export class Bridge {
         case 'mail.raw': return this.mail.get(account, input.id, true);
         case 'mail.modify': return this.mail.modify(account, input.ids, input.addLabels, input.removeLabels);
         case 'mail.move': return this.mail.move(account, input.id, input.destination);
+        case 'drafts.save': return this.mail.saveDraft(account, input);
+        case 'drafts.delete': return this.mail.deleteDraft(account, input.id);
         case 'mail.send': return this.mail.send(owner, account.id, account, input);
       }
     });
