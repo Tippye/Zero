@@ -1,3 +1,5 @@
+> Docker Compose 完整部署与 Windows 客户端请从 [部署文档](deploy/README.zh-CN.md) 开始；本文保留原有本机开发部署方式。
+
 # 本机自托管模式
 
 入口：<http://localhost:3005/>。默认进入「设置 → 连接」（`/settings/connections`）；没有邮箱时显示「尚未配置邮箱」，点击「添加连接」即可配置，无需 Google 账号。

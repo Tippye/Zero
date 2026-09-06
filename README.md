@@ -1,3 +1,5 @@
+> **Self-hosted Docker + Windows:** See [Docker Compose setup (中文)](deploy/README.zh-CN.md), [Windows client](native/desktop/README.zh-CN.md), and [local validation](deploy/VALIDATION.zh-CN.md).
+
 <p align="center">
   <picture>
     <source srcset="apps/mail/public/white-icon.svg" media="(prefers-color-scheme: dark)">

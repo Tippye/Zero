@@ -24,6 +24,7 @@ const origin = process.env.ZERO_TEST_URL || 'http://localhost:18080';
     ]);
     await page.waitForURL((url) => url.searchParams.get('subject') === 'Native warm start', {
       timeout: 30000,
+      waitUntil: 'domcontentloaded',
     });
     await page.waitForFunction(() =>
       Array.from(document.querySelectorAll('input')).some(
