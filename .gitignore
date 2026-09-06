@@ -60,3 +60,7 @@ worker-configuration.d.ts
 tsx-0/
 
 tools.json
+
+# Editor swap files may contain local secrets
+*.swp
+*.swo

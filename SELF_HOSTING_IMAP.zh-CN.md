@@ -1,5 +1,9 @@
 # Zero Fork：IMAP / SMTP、BYOK 和移动端构建说明
 
+> 邮件界面现已统一为 `/mail/inbox`：Gmail 与 IMAP 共用收件箱、阅读器、编辑器和按邮箱分组的侧边栏；旧 `/imap` 仅保留跳转。
+
+> 本机自托管模式已更新：默认无需 Google 登录、订阅不再强制、AI 统一使用服务器 OPENAI Provider。请先阅读 [当前部署说明](SELF_HOSTING_LOCAL.zh-CN.md)。下文涉及「必须先登录 Zero」和独立 BYOK 的步骤适用于关闭 SELF_HOSTED 的原有模式。
+
 > **状态：实验性第一版，不是完成全部目标的生产发行版。**
 > 当前仓库实际采用 React Router / Vite 前端和 Cloudflare Workers / Durable Objects 后端，不是一个普通 Next.js + Node 服务。
 > 本改造已提交到 `feat/imap-byok-mobile` 分支，包含 Node IMAP 桥接服务源码、Zero 内的 `/imap` 页面、用户自有 AI API 设置、Docker 配置和 Capacitor 打包脚手架。
@@ -154,34 +158,18 @@ pnpm --filter @zero/mail build
 在已经登录 Zero 的浏览器访问：
 
 ```text
-https://你的Zero域名/imap
+https://你的Zero域名/settings/connections
 ```
 
-首次点击“邮箱与 AI 设置”，选 QQ 或 163，填写邮箱地址和客户端授权码。服务端会依次验证 IMAP 和 SMTP。先使用一个专门测试邮箱，不要立即迁移唯一主力邮箱。
+首次在「设置 → 连接」点击「添加连接」，选择 QQ、163、126、iCloud 或其他邮箱，填写邮箱地址和客户端授权码。成功后在连接卡片点击「打开邮箱」进入对应的 `/imap?accountId=...` 工作区。服务端会依次验证 IMAP 和 SMTP。先使用一个专门测试邮箱，不要立即迁移唯一主力邮箱。
 
 ## 7. 配置自己的 AI API
 
-先在桥接 `.env` 中允许服务 origin，再重启容器应用修改：
+统一在「设置 → LLM 服务商」（`/settings/llm`）添加配置，不再在 IMAP 邮箱页输入 Key。填写 OpenAI 兼容 Base URL、API Key 及模型 ID；可获取模型列表或手动填写。支持多个配置，仅激活一个。服务器 `.env` 有配置时会作为只读选项显示，未配置 `.env` 也可以使用网页保存的配置。
 
-```bash
-docker compose up -d
-```
+Base URL 为服务商提供的 API 前缀，例如 `https://llm.example.com/v1`，不包含 `/chat/completions` 或 `/models`。模型列表和生成请求现在由 Zero 后端发起，不依赖 IMAP 桥接服务的 AI origin 配置。原生 Anthropic/Gemini 接口需使用 OpenAI 兼容网关。
 
-在 `/imap` → “邮箱与 AI 设置”里填：
-
-```text
-Base URL：服务商提供的兼容接口前缀，例如 https://llm.example.com/v1
-模型名称：该服务商实际支持的精确模型 ID
-API Key：你自己的 Key
-```
-
-客户端和服务端追加 `/chat/completions`。不要把完整 `/chat/completions` 地址填到 Base URL。原生 Anthropic/Gemini 接口不是该协议，需使用兼容网关；并非所有称为“兼容”的模型都支持相同参数，本版发送 `max_tokens` 和非流式文本请求，应先实际验证。
-
-使用 Ollama 等本地兼容服务时，在 Docker 可达的网络中提供服务，并显式允许对应 origin，例如 `http://ollama:11434`，页面中填 `http://ollama:11434/v1`。容器内的 `localhost` 是容器自己；不要以为它指向宿主机。无鉴权服务初次配置时 Key 可以留空。已有 Key 需要清空时先点击“删除 Key 和配置”，再重新保存。
-
-本版 AI 设置只作用于新工作区，**不会** 自动替换 Zero 旧的聊天 Agent、向量检索、自动标签等模型设置。
-
-AI 输出需要人工审核，永远不会自动执行发信、删除、转发或日历操作。API 费用由你配置的服务商收取，不包含在任何邮箱客户端免费额度内。
+本机服务可使用 `http://localhost:端口/v1`，需从 Zero 后端可达。无鉴权兼容服务填写其接受的占位 Key。保存的 Key 加密写入 PostgreSQL，需连同 `BETTER_AUTH_SECRET` 备份。完整说明见 `SELF_HOSTING_LOCAL.zh-CN.md` 的「AI 配置」。
 
 ## 8. iOS / Android 构建脚手架
 

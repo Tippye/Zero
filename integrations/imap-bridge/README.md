@@ -14,3 +14,11 @@ curl --fail http://127.0.0.1:3033/healthz
 Docker deploys only this bridge. The existing Zero frontend/auth/Cloudflare backend must still be configured separately. Native packaging elsewhere in the repository is a scaffold, not a finished mobile client.
 
 Unit tests (`npm test`) inject mail dependencies and need no network. `npm run test:dependencies` requires installing the real packages. Do not interpret unit tests as real QQ/163 validation.
+
+### HTML mail rendering
+
+The bridge preserves email presentation (tables, CSS, images and body attributes) while stripping executable HTML. The reader applies final HTML/CSS processing and the user's external-image setting. Supported CID attachments (PNG, JPEG, GIF and WebP) render inline without fetching remote images. Plain-text messages remain escaped text.
+
+When rolling out this rendering update, update/restart the bridge before the backend and frontend. The backend ignores old body-cache formats and refetches them on opening; restarting only the frontend will not recover HTML already stripped by an older bridge.
+
+From the repository root, run `node scripts/test-email-rendering.cjs` for synthetic IMAP-to-reader and Gmail MIME regression tests.
