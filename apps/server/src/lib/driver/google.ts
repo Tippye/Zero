@@ -1,7 +1,7 @@
+import { decodeMessageBody } from '../message-body';
 import {
   deleteActiveConnection,
   FatalErrors,
-  findHtmlBody,
   fromBase64Url,
   fromBinary,
   getSimpleLoginSender,
@@ -353,7 +353,7 @@ export class GoogleMailManager implements MailManager {
         const res = await this.gmail.users.threads.list({
           userId: 'me',
           q: normalizedQ ? normalizedQ : undefined,
-          labelIds: folder === 'inbox' ? labelIds : [],
+          labelIds: folder === 'inbox' ? labelIds : _labelIds,
           maxResults,
           pageToken: pageToken ? pageToken : undefined,
           quotaUser: this.getQuotaUser(),
@@ -399,20 +399,7 @@ export class GoogleMailManager implements MailManager {
         const labels = new Set<string>();
         const messages: ParsedMessage[] = await Promise.all(
           res.data.messages.map(async (message) => {
-            const bodyData =
-              message.payload?.body?.data ||
-              (message.payload?.parts ? findHtmlBody(message.payload.parts) : '') ||
-              message.payload?.parts?.[0]?.body?.data ||
-              '';
-
-            const decodedBody = bodyData
-              ? he
-                  .decode(fromBinary(bodyData))
-                  .replace(/<[^>]*>/g, '')
-                  .trim() === fromBinary(bodyData).trim()
-                ? he.decode(fromBinary(bodyData).replace(/\n/g, '<br>'))
-                : he.decode(fromBinary(bodyData))
-              : '';
+            const decodedBody = decodeMessageBody(message.payload);
 
             let processedBody = decodedBody;
             if (message.payload?.parts) {
@@ -576,16 +563,17 @@ export class GoogleMailManager implements MailManager {
       'sendDraft',
       async () => {
         const { raw } = await this.parseOutgoing(data);
-        await this.gmail.users.drafts.send({
+        const response = await this.gmail.users.drafts.send({
           userId: 'me',
           requestBody: {
             id: draftId,
             message: {
               raw,
-              id: draftId,
+              threadId: data.threadId,
             },
           },
         });
+        return { id: response.data.id, threadId: response.data.threadId };
       },
       { draftId, data },
     );

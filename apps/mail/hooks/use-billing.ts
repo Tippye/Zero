@@ -1,7 +1,6 @@
 import { useAutumn, useCustomer } from 'autumn-js/react';
-import { signOut } from '@/lib/auth-client';
 import { isProCustomer } from '@/lib/utils';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 type FeatureState = {
   total: number;
@@ -59,13 +58,11 @@ const FEATURE_IDS = {
   BRAIN: 'brain-activity',
 } as const;
 
-export const useBilling = () => {
+const useHostedBilling = () => {
   const { customer, refetch, isLoading, error } = useCustomer();
   const { attach, track, openBillingPortal } = useAutumn();
 
-  useEffect(() => {
-    if (error) signOut();
-  }, [error]);
+  // Billing availability does not determine whether an auth session is valid.
 
   const { isPro, ...customerFeatures } = useMemo(() => {
     const isPro = customer ? isProCustomer(customer) : false;
@@ -120,6 +117,7 @@ export const useBilling = () => {
   }, [customer]);
 
   return {
+    error,
     isLoading,
     customer,
     refetch,
@@ -130,3 +128,21 @@ export const useBilling = () => {
     ...customerFeatures,
   };
 };
+
+const useSelfHostedBilling = () => {
+  const unrestricted = (feature: FeatureState): FeatureState => ({ ...feature, unlimited: true, enabled: true });
+  const unavailable = async () => { throw new Error('自托管模式无需订阅。'); };
+  return {
+    error: null, isLoading: false, customer: null,
+    refetch: async () => undefined,
+    attach: unavailable, track: async () => undefined, openBillingPortal: unavailable,
+    isPro: true,
+    chatMessages: unrestricted(DEFAULT_FEATURES.chatMessages),
+    connections: unrestricted(DEFAULT_FEATURES.connections),
+    brainActivity: unrestricted(DEFAULT_FEATURES.brainActivity),
+  };
+};
+
+// Mode is fixed at build time; each branch keeps its own stable hook sequence.
+export const useBilling = import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true'
+  ? useSelfHostedBilling : useHostedBilling;

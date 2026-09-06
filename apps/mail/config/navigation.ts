@@ -32,6 +32,7 @@ export interface NavItem {
 }
 
 interface NavSection {
+  collapsible?: boolean;
   title: string;
   items: NavItem[];
 }
@@ -158,6 +159,7 @@ export const navigationConfig: Record<string, NavConfig> = {
             url: '/settings/connections',
             icon: Users,
           },
+          { title: m['llm.title'](), url: '/settings/llm', icon: Stars },
           {
             title: m['navigation.settings.privacy'](),
             url: '/settings/privacy',

@@ -1,5 +1,5 @@
 import { createRateLimiterMiddleware, privateProcedure, publicProcedure, router } from '../trpc';
-import { defaultUserSettings, userSettingsSchema, type UserSettings } from '../../lib/schemas';
+import { defaultUserSettings, normalizeMailCategories, userSettingsSchema, type UserSettings } from '../../lib/schemas';
 import { getZeroDB } from '../../lib/server-utils';
 import { Ratelimit } from '@upstash/ratelimit';
 
@@ -28,7 +28,7 @@ export const settingsRouter = router({
         return { settings: defaultUserSettings };
       }
 
-      return { settings: settingsRes.data };
+      return { settings: { ...settingsRes.data, categories: normalizeMailCategories(settingsRes.data.categories) } };
     }),
 
   save: privateProcedure.input(userSettingsSchema.partial()).mutation(async ({ ctx, input }) => {

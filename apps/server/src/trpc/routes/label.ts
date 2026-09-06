@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 export const labelsRouter = router({
   list: activeDriverProcedure
+    .input(z.object({ accountId: z.string().optional() }).optional())
     .use(
       createRateLimiterMiddleware({
         generatePrefix: ({ sessionUser }) => `ratelimit:get-labels-${sessionUser?.id}`,
@@ -40,6 +41,7 @@ export const labelsRouter = router({
     )
     .input(
       z.object({
+        accountId: z.string().optional(),
         name: z.string(),
         color: z
           .object({
@@ -55,8 +57,9 @@ export const labelsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { activeConnection } = ctx;
       const { stub: agent } = await getZeroAgent(activeConnection.id);
+      const { accountId: _scope, ...data } = input;
       const label = {
-        ...input,
+        ...data,
         type: 'user',
       };
       return await agent.createLabel(label);
@@ -70,6 +73,7 @@ export const labelsRouter = router({
     )
     .input(
       z.object({
+        accountId: z.string().optional(),
         id: z.string(),
         name: z.string(),
         type: z.string().optional(),
@@ -84,7 +88,7 @@ export const labelsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const { activeConnection } = ctx;
       const { stub: agent } = await getZeroAgent(activeConnection.id);
-      const { id, ...label } = input;
+      const { id, accountId: _scope, ...label } = input;
       return await agent.updateLabel(id, label);
     }),
   delete: activeDriverProcedure
@@ -94,7 +98,7 @@ export const labelsRouter = router({
         limiter: Ratelimit.slidingWindow(60, '1m'),
       }),
     )
-    .input(z.object({ id: z.string() }))
+    .input(z.object({ id: z.string(), accountId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const { activeConnection } = ctx;
       const { stub: agent } = await getZeroAgent(activeConnection.id);

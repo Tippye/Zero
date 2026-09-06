@@ -1,3 +1,4 @@
+import { MailCategoryTabs } from './category-tabs';
 import {
   Archive2,
   ExclamationCircle,
@@ -30,6 +31,7 @@ import { useSearchValue } from '@/hooks/use-search-value';
 import { EmptyStateIcon } from '../icons/empty-state-svg';
 import { highlightText } from '@/lib/email-utils.client';
 import { cn, FOLDERS, formatDate } from '@/lib/utils';
+import { useMailboxes, useMailboxScope } from '@/hooks/use-mailboxes';
 import { useTRPC } from '@/providers/query-provider';
 import { useThreadLabels } from '@/hooks/use-labels';
 import { useSettings } from '@/hooks/use-settings';
@@ -59,7 +61,7 @@ const Thread = memo(
     const { folder } = useParams<{ folder: string }>();
     const [, threads] = useThreads();
     const [threadId] = useQueryState('threadId');
-    const { data: getThreadData, isGroupThread, latestDraft } = useThread(message.id);
+    const { data: getThreadData, isGroupThread, latestDraft } = useThread(message.id, (message as any).$raw?.preview);
     const [id, setThreadId] = useQueryState('threadId');
     const [focusedIndex, setFocusedIndex] = useAtom(focusedIndexAtom);
 
@@ -213,6 +215,7 @@ const Thread = memo(
       return !!latestDraft;
     }, [latestDraft]);
 
+    const sourceAccount = (message as any).accountEmail as string | undefined;
     const content = useMemo(() => {
       if (!latestMessage || !getThreadData) return null;
 
@@ -537,18 +540,20 @@ const Thread = memo(
       threadLabels,
       optimisticLabels,
       emailContent,
+      sourceAccount,
     ]);
 
     return latestMessage ? (
       !optimisticState.shouldHide && idToUse ? (
         <ThreadContextMenu
           threadId={idToUse}
+          preview={(message as any).$raw?.preview}
           isInbox={isFolderInbox}
           isSpam={isFolderSpam}
           isSent={isFolderSent}
           isBin={isFolderBin}
         >
-          {content}
+          <div>{sourceAccount && <p className="px-4 pt-1 text-xs text-muted-foreground" title={m['mailboxes.source']()}>{sourceAccount}</p>}{content}</div>
         </ThreadContextMenu>
       ) : null
     ) : null;
@@ -556,6 +561,7 @@ const Thread = memo(
   (prev, next) => {
     const isSameMessage =
       prev.message.id === next.message.id &&
+      (prev.message as { $raw?: unknown }).$raw === (next.message as { $raw?: unknown }).$raw &&
       prev.isKeyboardFocused === next.isKeyboardFocused &&
       prev.index === next.index &&
       Object.is(prev.onClick, next.onClick);
@@ -563,8 +569,8 @@ const Thread = memo(
   },
 );
 
-const Draft = memo(({ message, index }: { message: { id: string }; index: number }) => {
-  const draftQuery = useDraft(message.id) as UseQueryResult<ParsedDraft>;
+const Draft = memo(({ message, index }: { message: { id: string; accountEmail?: string; $raw?: any }; index: number }) => {
+  const draftQuery = useDraft(message.id, message.$raw?.draftPreview) as UseQueryResult<ParsedDraft>;
   const draft = draftQuery.data;
   const [, setComposeOpen] = useQueryState('isComposeOpen');
   const [, setDraftId] = useQueryState('draftId');
@@ -690,7 +696,7 @@ const Draft = memo(({ message, index }: { message: { id: string }; index: number
                     'mt-1 line-clamp-1 max-w-[50ch] text-sm text-[#8C8C8C] md:max-w-[30ch]',
                   )}
                 >
-                  {draft?.subject}
+                  {message.accountEmail && <span className="mr-2 text-xs">{message.accountEmail}</span>}{draft?.subject}
                 </p>
               </div>
             </div>
@@ -726,7 +732,9 @@ export const MailList = memo(
       };
     }, [setAnchorIndex]);
 
-    const [{ refetch, isLoading, isFetching, isFetchingNextPage, hasNextPage }, items, , loadMore] =
+    const { data: accounts = [] } = useMailboxes();
+    const accountId = useMailboxScope();
+    const [{ data: mailboxPages, error: mailboxError, refetch, isLoading, isFetching, isFetchingNextPage, hasNextPage }, items, , loadMore] =
       useThreads();
     const trpc = useTRPC();
     const isFetchingMail = useIsFetching({ queryKey: trpc.mail.get.queryKey() }) > 0;
@@ -951,12 +959,20 @@ export const MailList = memo(
         <div
           ref={parentRef}
           className={cn(
-            'hide-link-indicator flex h-full w-full',
+            'hide-link-indicator flex h-full w-full flex-col',
             getSelectMode() === 'range' && 'select-none',
           )}
         >
           <>
-            {isLoading ? (
+            <MailCategoryTabs />
+            {(mailboxError || mailboxPages?.pages.some(page => page.warnings?.length)) && <div role="alert" className="m-2 rounded border p-3 text-sm">
+              <p>{m['mailboxes.loadFailed']()}</p>
+              {Array.from(new Map(mailboxPages?.pages.flatMap(page => page.warnings || []).map(w => [w.accountId, w])).values()).map(w => <p key={w.accountId}>
+                {w.email}：{w.code === 'RATE_LIMIT' ? m['mailboxes.rateLimited']() : w.code === 'TIMEOUT' ? m['mailboxes.timeout']() : w.code === 'DISCONNECTED' ? m['mailboxes.reconnect']() : m['mailboxes.connectionFailed']()}
+              </p>)}
+              <button className="underline" onClick={() => void refetch()}>{m['pages.settings.retry']()}</button>
+            </div>}
+            {!accounts.length && !isLoading ? <div className="p-8 text-center"><p>{m['imap.emptyTitle']()}</p><a className="underline" href="/settings/connections">{m['pages.settings.connections.addEmail']()}</a></div> : isLoading ? (
               <div className="flex h-32 w-full items-center justify-center">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-900 border-t-transparent dark:border-white dark:border-t-transparent" />
               </div>

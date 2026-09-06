@@ -13,13 +13,17 @@ interface MailContentProps {
   id: string;
   html: string;
   senderEmail: string;
+  imagePreferenceId?: string;
 }
 
-export function MailContent({ id, html, senderEmail }: MailContentProps) {
+export function MailContent({ id, html, senderEmail, imagePreferenceId = id }: MailContentProps) {
   const { data, refetch } = useSettings();
   const queryClient = useQueryClient();
   const isTrustedSender = useMemo(
-    () => data?.settings?.externalImages || data?.settings?.trustedSenders?.includes(senderEmail),
+    () =>
+      Boolean(
+        data?.settings?.externalImages || data?.settings?.trustedSenders?.includes(senderEmail),
+      ),
     [data?.settings, senderEmail],
   );
   const [cspViolation, setCspViolation] = useState(false);
@@ -66,8 +70,20 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
     trpc.mail.processEmailContent.mutationOptions(),
   );
 
-  const { data: processedData } = useQuery({
-    queryKey: ['email-content', id, isTrustedSender || temporaryImagesEnabled, resolvedTheme],
+  const {
+    data: processedData,
+    isPending,
+    isError,
+    refetch: retryContent,
+  } = useQuery({
+    queryKey: [
+      'email-content-v2',
+      id,
+      html,
+      isTrustedSender || temporaryImagesEnabled,
+      resolvedTheme,
+    ],
+    meta: { persist: false },
     queryFn: async () => {
       const result = await processEmailContent({
         html,
@@ -87,12 +103,12 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
   });
 
   useEffect(() => {
-    if (processedData) {
-      if (processedData.hasBlockedImages) {
-        setCspViolation(true);
-      }
-    }
+    setCspViolation(Boolean(processedData?.hasBlockedImages));
   }, [processedData]);
+
+  useEffect(() => {
+    setTemporaryImagesEnabled(false);
+  }, [imagePreferenceId, senderEmail]);
 
   useEffect(() => {
     if (!hostRef.current || shadowRootRef.current) return;
@@ -101,9 +117,17 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
   }, []);
 
   useEffect(() => {
-    if (!shadowRootRef.current || !processedData) return;
+    if (!shadowRootRef.current) return;
 
-    shadowRootRef.current.innerHTML = processedData.html;
+    if (!processedData) {
+      shadowRootRef.current.replaceChildren();
+      return;
+    }
+    // Parsing as a fragment drops <body> attributes and breaks body/html CSS selectors.
+    const documentContent = new DOMParser().parseFromString(processedData.html, 'text/html');
+    shadowRootRef.current.replaceChildren(
+      document.importNode(documentContent.documentElement, true),
+    );
   }, [processedData]);
 
   const handleImageError = useCallback(
@@ -129,9 +153,10 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
 
     const handleClick = (e: Event) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'A') {
+      const anchor = target.closest('a');
+      if (anchor) {
         e.preventDefault();
-        const href = target.getAttribute('href');
+        const href = anchor.getAttribute('href');
         if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
           window.open(href, '_blank', 'noopener,noreferrer');
         } else if (href && href.startsWith('mailto:')) {
@@ -156,6 +181,21 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
 
   return (
     <>
+      {isPending && (
+        <p role="status" className="text-muted-foreground px-4 py-2 text-sm">
+          {m['common.mailDisplay.loadingMailContent']()}
+        </p>
+      )}
+      {isError && (
+        <button
+          type="button"
+          role="alert"
+          className="px-4 py-2 text-sm underline"
+          onClick={() => void retryContent()}
+        >
+          {m['mailContent.retry']()}
+        </button>
+      )}
       {cspViolation && !isTrustedSender && !data?.settings?.externalImages && (
         <div className="flex items-center justify-start bg-amber-600/20 px-2 py-1 text-sm text-amber-600">
           <p>{m['common.actions.hiddenImagesWarning']()}</p>
@@ -181,7 +221,12 @@ export function MailContent({ id, html, senderEmail }: MailContentProps) {
           </button>
         </div>
       )}
-      <div ref={hostRef} className={cn('mail-content w-full flex-1 overflow-scroll no-scrollbar px-4 text-black dark:text-white')} />
+      <div
+        ref={hostRef}
+        className={cn(
+          'mail-content no-scrollbar w-full flex-1 overflow-scroll px-4 text-black dark:text-white',
+        )}
+      />
     </>
   );
 }

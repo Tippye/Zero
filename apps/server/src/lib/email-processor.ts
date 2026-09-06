@@ -3,7 +3,31 @@ import { CssSanitizer } from '@barkleapp/css-sanitizer';
 import sanitizeHtml from 'sanitize-html';
 import * as cheerio from 'cheerio';
 
-const sanitizer = new CssSanitizer();
+const sanitizer = new CssSanitizer({
+  allowedProperties: [
+    'padding-top',
+    'padding-right',
+    'padding-bottom',
+    'padding-left',
+    'margin-top',
+    'margin-right',
+    'margin-bottom',
+    'margin-left',
+    'border-collapse',
+    'border-spacing',
+    'border-color',
+    'border-style',
+    'border-width',
+    'border-top',
+    'border-right',
+    'border-bottom',
+    'border-left',
+    'table-layout',
+    'font-style',
+    'font',
+    'overflow-wrap',
+  ],
+});
 
 interface ProcessEmailOptions {
   html: string;
@@ -15,6 +39,9 @@ interface ProcessEmailOptions {
 export function preprocessEmailHtml(html: string): string {
   const sanitizeConfig: sanitizeHtml.IOptions = {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      'html',
+      'head',
+      'body',
       'img',
       'title',
       'details',
@@ -24,6 +51,8 @@ export function preprocessEmailHtml(html: string): string {
 
     allowedAttributes: {
       '*': [
+        'id',
+        'dir',
         'class',
         'style',
         'align',
@@ -66,20 +95,7 @@ export function preprocessEmailHtml(html: string): string {
 
   $('style').each((_, el) => {
     const css = $(el).html() || '';
-    const safe = sanitizer.sanitizeCss(css, {
-      allowedProperties: [
-        'color',
-        'background-color',
-        'font-size',
-        'margin',
-        'padding',
-        'text-align',
-        'border',
-        'display',
-      ],
-      disallowedAtRules: ['import', 'keyframes'],
-      disallowedFunctions: ['expression', 'url'],
-    });
+    const safe = sanitizer.sanitizeCss(css);
     $(el).html(safe);
   });
 
@@ -152,9 +168,9 @@ export function applyEmailPreferences(
       const src = $img.attr('src');
 
       // Allow CID images (inline attachments)
-      if (src && !src.startsWith('cid:')) {
+      if (src && !/^(?:cid:|data:image\/(?:png|jpeg|gif|webp);base64,)/i.test(src)) {
         hasBlockedImages = true;
-        $img.replaceWith(`<span style="display:none;"><!-- blocked image: ${src} --></span>`);
+        $img.remove();
       }
     });
   }
@@ -184,6 +200,15 @@ export function applyEmailPreferences(
         cursor: pointer;
         color: ${isDarkTheme ? '#60a5fa' : '#2563eb'};
         text-decoration: underline;
+      }
+
+      img {
+        max-width: 100%;
+      }
+
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
       }
 
       table {

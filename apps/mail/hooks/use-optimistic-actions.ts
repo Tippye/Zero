@@ -75,7 +75,12 @@ export function useOptimisticActions() {
     `pending_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
   const refreshData = useCallback(async () => {
-    return await queryClient.refetchQueries({ queryKey: trpc.labels.list.queryKey() });
+    return await Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.mail.listThreads.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.mail.get.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.drafts.get.pathKey() }),
+      queryClient.refetchQueries({ queryKey: trpc.labels.list.queryKey() }),
+    ]);
   }, [queryClient]);
 
   function createPendingAction({
@@ -128,7 +133,10 @@ export function useOptimisticActions() {
     const itemCount = threadIds.length;
     const bulkActionMessage = itemCount > 1 ? `${toastMessage} (${itemCount} items)` : toastMessage;
 
+    let hasStarted = false;
     async function doAction() {
+      if (hasStarted || !optimisticActionsManager.pendingActions.has(pendingActionId)) return;
+      hasStarted = true;
       try {
         await execute();
         const typeActions = optimisticActionsManager.pendingActionsByType.get(type);
@@ -145,10 +153,9 @@ export function useOptimisticActions() {
 
         optimisticActionsManager.pendingActions.delete(pendingActionId);
         optimisticActionsManager.pendingActionsByType.get(type)?.delete(pendingActionId);
-        if (typeActions?.size === 1) {
-          await refreshData();
-          removeOptimisticAction(optimisticId);
-        }
+        // Every completed action changes cached list membership, including inactive filters.
+        await refreshData();
+        removeOptimisticAction(optimisticId);
       } catch (error) {
         console.error('Action failed:', error);
         removeOptimisticAction(optimisticId);

@@ -9,7 +9,8 @@ import { redis } from '../lib/services';
 import type { Context } from 'hono';
 import superjson from 'superjson';
 
-type TrpcContext = {
+export type TrpcContext = {
+  mailboxConnection?: Awaited<ReturnType<typeof getActiveConnection>>;
   c: Context<HonoContext>;
 } & HonoVariables;
 
@@ -54,7 +55,7 @@ export const privateProcedure = publicProcedure.use(async ({ ctx, next }) => {
   return next({ ctx: { ...ctx, sessionUser: ctx.sessionUser } });
 });
 
-export const activeConnectionProcedure = privateProcedure.use(async ({ ctx, next }) => {
+export const activeConnectionProcedure = privateProcedure.use(async ({ ctx, next, getRawInput }) => {
   const { addRequestSpan, completeRequestSpan } = await import('../lib/trace-context');
 
   // Start connection validation span
@@ -65,7 +66,12 @@ export const activeConnectionProcedure = privateProcedure.use(async ({ ctx, next
   });
 
   try {
-    const activeConnection = await getActiveConnection();
+    const raw = await getRawInput() as { accountId?: unknown } | undefined;
+    const selected = typeof raw?.accountId === 'string' ? raw.accountId : ctx.c.req.header('X-Mailbox-Account');
+    const selectedConnection = !ctx.mailboxConnection && selected && selected !== 'all'
+      ? await (await getZeroDB(ctx.sessionUser.id)).findUserConnection(selected) : null;
+    if (!ctx.mailboxConnection && selected && !selectedConnection) throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Select an OAuth mailbox for this operation.' });
+    const activeConnection = ctx.mailboxConnection || selectedConnection || await getActiveConnection();
 
     if (connectionSpan) {
       completeRequestSpan(ctx.c, connectionSpan.id, {
@@ -84,7 +90,6 @@ export const activeConnectionProcedure = privateProcedure.use(async ({ ctx, next
       }, err instanceof Error ? err.message : 'Failed to get active connection');
     }
 
-    await ctx.c.var.auth.api.signOut({ headers: ctx.c.req.raw.headers });
     throw new TRPCError({
       code: 'BAD_REQUEST',
       message: err instanceof Error ? err.message : 'Failed to get active connection',

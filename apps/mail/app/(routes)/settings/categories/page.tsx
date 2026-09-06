@@ -1,3 +1,4 @@
+import { CategoryLearning } from '@/components/settings/category-learning';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -21,7 +22,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SettingsCard } from '@/components/settings/settings-card';
 import { Check, ChevronDown, Trash2, Plus } from 'lucide-react';
-import type { CategorySetting } from '@/hooks/use-categories';
+import { categoryName, type CategorySetting } from '@/hooks/use-categories';
 import { defaultMailCategories } from '@zero/server/schemas';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTRPC } from '@/providers/query-provider';
@@ -115,7 +116,7 @@ const SortableCategoryItem = React.memo(function SortableCategoryItem({
             <GripVertical className="text-muted-foreground h-4 w-4" />
           </button>
           <Badge variant="outline" className="bg-background text-xs font-normal">
-            {cat.id}
+            {categoryName(cat)}
           </Badge>
           {cat.isDefault && (
             <Badge className="border-blue-200 bg-blue-500/10 text-xs text-blue-500">Default</Badge>
@@ -131,11 +132,11 @@ const SortableCategoryItem = React.memo(function SortableCategoryItem({
             <Trash2 className="h-3 w-3" />
           </Button>
           <Switch
-            id={`default-${cat.id}`}
+            id={`default-${categoryName(cat)}`}
             checked={!!cat.isDefault}
             onCheckedChange={handleToggleDefault}
           />
-          <Label htmlFor={`default-${cat.id}`} className="cursor-pointer text-xs font-normal">
+          <Label htmlFor={`default-${categoryName(cat)}`} className="cursor-pointer text-xs font-normal">
             Set as Default
           </Label>
         </div>
@@ -144,12 +145,12 @@ const SortableCategoryItem = React.memo(function SortableCategoryItem({
       <div className="grid grid-cols-12 items-start gap-4">
         <div className="col-span-12 sm:col-span-6">
           <Label className="mb-1.5 block text-xs">Display Name</Label>
-          <Input className="h-8 text-sm" value={cat.name} onChange={handleNameChange} />
+          <Input className="h-8 text-sm" value={categoryName(cat)} readOnly={!!cat.builtin} onChange={handleNameChange} />
         </div>
 
         <div className="col-span-6">
           <Label className="mb-1.5 block text-xs">Label Filters</Label>
-          <DropdownMenu>
+          {cat.builtin ? <p className="text-muted-foreground text-sm">{cat.builtin === 'all' ? m['mailCategories.all']() : m['mailCategories.aiManaged']()}</p> : <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-8 w-full justify-between text-sm">
                 <span>
@@ -194,7 +195,7 @@ const SortableCategoryItem = React.memo(function SortableCategoryItem({
                 );
               })}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
         </div>
       </div>
     </div>
@@ -362,6 +363,7 @@ export default function CategoriesSettingsPage() {
       }
     >
       <div className="space-y-4">
+        <CategoryLearning />
         <div className="flex justify-end">
           <Button onClick={handleAddCategory} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
@@ -375,7 +377,7 @@ export default function CategoriesSettingsPage() {
           >
             {categories.map((cat) => (
               <SortableCategoryItem
-                key={cat.id}
+                key={categoryName(cat)}
                 cat={cat}
                 handleFieldChange={handleFieldChange}
                 toggleDefault={toggleDefault}

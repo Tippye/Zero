@@ -1,3 +1,4 @@
+import { mailboxesRouter, unifiedMailRouter, unifiedDraftsRouter } from './routes/mailboxes';
 import { type inferRouterInputs, type inferRouterOutputs } from '@trpc/server';
 import { cookiePreferencesRouter } from './routes/cookies';
 import { connectionsRouter } from './routes/connections';
@@ -18,19 +19,22 @@ import type { HonoContext } from '../ctx';
 import { aiRouter } from './routes/ai';
 import { router } from './trpc';
 import { loggingRouter } from './routes/logging';
+import { llmRouter } from './routes/llm';
 import { imapRouter } from './routes/imap';
 
 export const appRouter = router({
   imap: imapRouter,
+  llm: llmRouter,
   ai: aiRouter,
   bimi: bimiRouter,
   brain: brainRouter,
   categories: categoriesRouter,
   connections: connectionsRouter,
   cookiePreferences: cookiePreferencesRouter,
-  drafts: draftsRouter,
+  drafts: router({ ...draftsRouter._def.record, ...unifiedDraftsRouter._def.record }),
   labels: labelsRouter,
-  mail: mailRouter,
+  mailboxes: mailboxesRouter,
+  mail: router({ ...mailRouter._def.record, ...unifiedMailRouter._def.record }),
   notes: notesRouter,
   shortcut: shortcutRouter,
   settings: settingsRouter,

@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { getLocale, setLocale, extractLocaleFromCookie, type Locale } from '@/paraglide/runtime';
+import { SyncSettings, useSyncSettings } from '@/components/settings/sync-settings';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useForm, type ControllerRenderProps } from 'react-hook-form';
@@ -20,7 +22,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { SettingsCard } from '@/components/settings/settings-card';
 import { useEmailAliases } from '@/hooks/use-email-aliases';
 import { Globe, Clock, Mail, InfoIcon } from 'lucide-react';
-import { getLocale, setLocale } from '@/paraglide/runtime';
 import { useState, useEffect, useMemo, memo } from 'react';
 import { userSettingsSchema } from '@zero/server/schemas';
 import { locales } from '@/project.inlang/settings.json';
@@ -35,10 +36,10 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 // import { useRevalidator } from 'react-router';
 import { m } from '@/paraglide/messages';
+import { useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as z from 'zod';
-import { useCallback } from 'react';
 
 const TimezoneSelect = memo(
   ({ field }: { field: ControllerRenderProps<z.infer<typeof userSettingsSchema>, 'timezone'> }) => {
@@ -62,7 +63,7 @@ const TimezoneSelect = memo(
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="flex h-9! w-full items-center justify-start rounded-md hover:bg-transparent"
+              className="h-9! flex w-full items-center justify-start rounded-md hover:bg-transparent"
             >
               <Clock className="mr-2 h-4 w-4 shrink-0" />
               <span className="truncate">{field.value}</span>
@@ -114,6 +115,7 @@ TimezoneSelect.displayName = 'TimezoneSelect';
 
 export default function GeneralPage() {
   const [isSaving, setIsSaving] = useState(false);
+  const syncSettings = useSyncSettings();
   const locale = getLocale();
 
   const { data, refetch: refetchSettings } = useSettings();
@@ -141,10 +143,15 @@ export default function GeneralPage() {
 
   useEffect(() => {
     if (data?.settings) {
-      form.reset(data.settings);
-      setLocale(data.settings.language as any);
+      // An explicit browser choice also applies when opening account settings.
+      const chosenLocale = extractLocaleFromCookie();
+      const savedLocale = locales.includes(data.settings.language)
+        ? data.settings.language
+        : locale;
+      form.reset({ ...data.settings, language: chosenLocale || savedLocale });
+      if (!chosenLocale) setLocale(savedLocale as Locale);
     }
-  }, [form, data?.settings]);
+  }, [form, data?.settings, locale]);
 
   useEffect(() => {
     if (aliases && !data?.settings?.defaultEmailAlias) {
@@ -164,10 +171,12 @@ export default function GeneralPage() {
         if (!updater) return;
         return { settings: { ...updater.settings, ...values } };
       });
+      await syncSettings.save();
       await saveUserSettings(values);
       await refetchSettings();
 
       toast.success(m['common.settings.saved']());
+      setLocale(values.language as Locale);
     } catch (error) {
       console.error(error);
       toast.error(m['common.settings.failedToSave']());
@@ -223,7 +232,7 @@ export default function GeneralPage() {
 
   const renderTimezoneField = useCallback(
     ({ field }: { field: any }) => (
-      <FormItem className="w-full md:w-[200px] self-start">
+      <FormItem className="w-full self-start md:w-[200px]">
         <FormLabel className="text-sm font-medium">
           {m['pages.settings.general.timezone']()}
         </FormLabel>
@@ -277,7 +286,9 @@ export default function GeneralPage() {
       <FormItem className="flex max-w-xl flex-row items-center justify-between rounded-lg border px-4 py-2">
         <div className="space-y-0.5">
           <FormLabel>{m['pages.settings.general.zeroSignature']()}</FormLabel>
-          <FormDescription>{m['pages.settings.general.zeroSignatureDescription']()}</FormDescription>
+          <FormDescription>
+            {m['pages.settings.general.zeroSignatureDescription']()}
+          </FormDescription>
         </div>
         <FormControl>
           <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -320,29 +331,16 @@ export default function GeneralPage() {
   );
 
   return (
-    <div className="grid gap-6">
-      <SettingsCard
-        title={m['pages.settings.general.title']()}
-        description={m['pages.settings.general.description']()}
-        footer={
-          <Button type="submit" form="general-form" disabled={isSaving}>
-            {isSaving ? m['common.actions.saving']() : m['common.actions.saveChanges']()}
-          </Button>
-        }
-      >
-        <Form {...form}>
-          <form id="general-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+    <Form {...form}>
+      <form id="general-form" onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+        <SettingsCard
+          title={m['pages.settings.general.title']()}
+          description={m['pages.settings.general.description']()}
+        >
+          <div className="space-y-8">
             <div className="flex w-full flex-col items-start gap-4 md:flex-row md:items-center">
-              <FormField
-                control={form.control}
-                name="language"
-                render={renderLanguageField}
-              />
-              <FormField
-                control={form.control}
-                name="timezone"
-                render={renderTimezoneField}
-              />
+              <FormField control={form.control} name="language" render={renderLanguageField} />
+              <FormField control={form.control} name="timezone" render={renderTimezoneField} />
               {aliases && aliases.length > 0 && (
                 <FormField
                   control={form.control}
@@ -357,20 +355,22 @@ export default function GeneralPage() {
               name="zeroSignature"
               render={renderZeroSignatureField}
             />
-            <FormField
-              control={form.control}
-              name="autoRead"
-              render={renderAutoReadField}
-            />
+            <FormField control={form.control} name="autoRead" render={renderAutoReadField} />
             <FormField
               control={form.control}
               name="undoSendEnabled"
               render={renderUndoSendEnabledField}
             />
             <FormField control={form.control} name="animations" render={renderAnimationsField} />
-          </form>
-        </Form>
-      </SettingsCard>
-    </div>
+          </div>
+        </SettingsCard>
+        <SyncSettings settings={syncSettings} />
+        <div className="border-t py-4">
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? m['common.actions.saving']() : m['common.actions.saveChanges']()}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

@@ -43,6 +43,7 @@ export const mailCategorySchema = z.object({
       /^[a-zA-Z0-9\-_ ]+$/,
       'Category ID must contain only alphanumeric characters, hyphens, underscores, and spaces',
     ),
+  builtin: z.enum(['primary', 'transactions', 'updates', 'promotions', 'all']).optional(),
   name: z.string(),
   searchValue: z.string(),
   order: z.number().int(),
@@ -53,31 +54,23 @@ export const mailCategorySchema = z.object({
 export type MailCategory = z.infer<typeof mailCategorySchema>;
 
 export const defaultMailCategories: MailCategory[] = [
-  {
-    id: 'Important',
-    name: 'Important',
-    searchValue: 'IMPORTANT',
-    order: 0,
-    icon: 'Lightning',
-    isDefault: false,
-  },
-  {
-    id: 'All Mail',
-    name: 'All Mail',
-    searchValue: '',
-    order: 1,
-    icon: 'Mail',
-    isDefault: true,
-  },
-  {
-    id: 'Unread',
-    name: 'Unread',
-    searchValue: 'UNREAD',
-    order: 5,
-    icon: 'ScanEye',
-    isDefault: false,
-  },
+  { id: 'zero-primary', builtin: 'primary', name: 'Primary', searchValue: 'ZERO_CATEGORY_PRIMARY', order: 0, icon: 'Inbox', isDefault: false },
+  { id: 'zero-transactions', builtin: 'transactions', name: 'Transactions', searchValue: 'ZERO_CATEGORY_TRANSACTIONS', order: 1, icon: 'Receipt', isDefault: false },
+  { id: 'zero-updates', builtin: 'updates', name: 'Updates', searchValue: 'ZERO_CATEGORY_UPDATES', order: 2, icon: 'Bell', isDefault: false },
+  { id: 'zero-promotions', builtin: 'promotions', name: 'Promotions', searchValue: 'ZERO_CATEGORY_PROMOTIONS', order: 3, icon: 'Tags', isDefault: false },
+  { id: 'zero-all', builtin: 'all', name: 'All', searchValue: '', order: 4, icon: 'Mails', isDefault: true },
 ];
+
+// Upgrade the old defaults once, without interpreting user-defined names as translation keys.
+export function normalizeMailCategories(categories?: MailCategory[]): MailCategory[] {
+  if (categories?.some(c => c.builtin)) return [...categories].sort((a, b) => a.order - b.order);
+  const legacy: Record<string, string> = { Important: 'IMPORTANT', 'All Mail': '', Unread: 'UNREAD' };
+  const custom = (categories || []).filter(c => !(c.id === c.name && Object.hasOwn(legacy, c.id) && legacy[c.id] === c.searchValue));
+  const customDefault = custom.some(c => c.isDefault);
+  const defaults = defaultMailCategories.filter(c => !custom.some(item => item.id === c.id));
+  return [...defaults.map(c => ({ ...c, isDefault: customDefault ? false : c.isDefault })), ...custom]
+    .map((c, order) => ({ ...c, order }));
+}
 
 const categoriesSchema = z.array(mailCategorySchema).superRefine((cats, ctx) => {
   const orders = cats.map((c) => c.order);
@@ -111,6 +104,7 @@ export const userSettingsSchema = z.object({
   defaultEmailAlias: z.string().optional(),
   undoSendEnabled: z.boolean().default(false),
   imageCompression: z.enum(['low', 'medium', 'original']).default('medium'),
+  aiCategoryLearning: z.boolean().default(false),
   autoRead: z.boolean().default(true),
   animations: z.boolean().default(false),
 });
@@ -127,6 +121,7 @@ export const defaultUserSettings: UserSettings = {
   isOnboarded: false,
   colorTheme: 'system',
   zeroSignature: true,
+  aiCategoryLearning: false,
   autoRead: true,
   defaultEmailAlias: '',
   categories: defaultMailCategories,

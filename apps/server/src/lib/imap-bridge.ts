@@ -28,6 +28,7 @@ export type ImapPage = {
   nextPageToken: string | null;
 };
 export type ImapAiSettings = {
+  managed?: boolean;
   baseUrl: string;
   model: string;
   hasKey: boolean;
@@ -63,15 +64,18 @@ export async function imapBridge<T>(ownerId: string, action: string, input: unkn
   try {
     response = await fetch(url, {
       method: 'POST',
-      redirect: 'error',
+      redirect: 'manual',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.IMAP_BRIDGE_SECRET}` },
       body: JSON.stringify({ ownerId, action, input }),
-      signal: AbortSignal.timeout(95000),
+      signal: AbortSignal.timeout(action === 'accounts.list' ? 5000 : action === 'mail.list' ? 30000 : action === 'mail.send' ? 95000 : 30000),
     });
   } catch {
     throw new TRPCError({ code: 'TIMEOUT', message: action === 'mail.send'
       ? 'SMTP result is unknown. Check Sent before retrying; keep the same operation ID.'
       : 'The IMAP bridge is unreachable or timed out.' });
+  }
+  if (response.status >= 300 && response.status < 400) {
+    throw new TRPCError({ code: 'BAD_GATEWAY', message: 'The IMAP bridge must not redirect requests.' });
   }
   const body = await response.json().catch(() => null) as { result?: T; error?: { code?: string; message?: string } } | null;
   if (!response.ok || !body || !Object.hasOwn(body, 'result')) {

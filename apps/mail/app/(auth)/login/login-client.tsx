@@ -1,3 +1,5 @@
+import { m } from '@/paraglide/messages';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import type { EnvVarInfo } from '@zero/server/auth-providers';
@@ -5,7 +7,7 @@ import { Google, Microsoft } from '@/components/icons/icons';
 import ErrorMessage from '@/app/(auth)/login/error-message';
 import { Button } from '@/components/ui/button';
 import { TriangleAlert } from 'lucide-react';
-import { signIn } from '@/lib/auth-client';
+import { authClient, signIn } from '@/lib/auth-client';
 import { useNavigate } from 'react-router';
 import { useQueryState } from 'nuqs';
 import { toast } from 'sonner';
@@ -112,12 +114,17 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
       navigate(provider.customRedirectPath);
     } else {
       toast.promise(
-        signIn.social({
-          provider: provider.id as any,
-          callbackURL: `${window.location.origin}/mail`,
-        }),
+        (async () => {
+          const options = { provider: provider.id as any, callbackURL: `${window.location.origin}/mail` };
+          if (import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true') {
+            const session = await authClient.getSession();
+            // Link Google to this workspace so existing IMAP ownership stays intact.
+            if (session.data?.user.isAnonymous) return authClient.linkSocial(options);
+          }
+          return signIn.social(options);
+        })(),
         {
-          error: 'Login redirect failed',
+          error: m['login.redirectFailed'](),
         },
       );
     }
@@ -136,12 +143,13 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
     <div className="flex min-h-screen w-full flex-col items-center justify-between bg-[#111111]">
       <div className="animate-in slide-in-from-bottom-4 mx-auto flex max-w-[600px] grow items-center justify-center space-y-8 px-4 duration-500 sm:px-12 md:px-0">
         <div className="w-full space-y-4">
-          <p className="text-center text-4xl font-bold text-white md:text-5xl">Login to Zero</p>
+          <p className="text-center text-4xl font-bold text-white md:text-5xl">{m['login.title']()}</p>
+          <div className="text-white"><LanguageSwitcher /></div>
 
           {error && (
             <Alert variant="default" className="border-orange-500/40 bg-orange-500/10">
-              <AlertTitle className="text-orange-400">Error</AlertTitle>
-              <AlertDescription>Failed to log you in. Please try again.</AlertDescription>
+              <AlertTitle className="text-orange-400">{m['login.error']()}</AlertTitle>
+              <AlertDescription>{m['login.failed']()}</AlertDescription>
             </Alert>
           )}
 
@@ -295,7 +303,7 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
                       className="border-input bg-background text-primary hover:bg-accent hover:text-accent-foreground h-12 w-full rounded-lg border-2"
                     >
                       {getProviderIcon(provider.id)}
-                      Continue with {provider.name}
+                      {m['login.continueWith']({ provider: provider.name })}
                     </Button>
                   ),
               )}
@@ -303,7 +311,7 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
           )}
         </div>
       </div>
-      <a href={'/'} className='text-white hover:text-gray-200'>Return home</a>
+      <a href={'/'} className='text-white hover:text-gray-200'>{m['login.returnHome']()}</a>
 
       <footer className="w-full px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-6">
@@ -311,13 +319,13 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
             href="/terms"
             className="text-[10px] text-gray-400 hover:text-gray-200 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            Terms of Service
+            {m['login.terms']()}
           </a>
           <a
             href="/privacy"
             className="text-[10px] text-gray-400 hover:text-gray-200 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            Privacy Policy
+            {m['login.privacy']()}
           </a>
         </div>
       </footer>
@@ -328,7 +336,7 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
 export function LoginClient(props: LoginClientProps) {
   const fallback = (
     <div className="flex min-h-screen w-full items-center justify-center">
-      <p>Loading...</p>
+      <p>{m['common.actions.loading']()}</p>
     </div>
   );
 

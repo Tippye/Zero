@@ -1,3 +1,4 @@
+import { useMailboxes } from '@/hooks/use-mailboxes';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ import { useQueryState } from 'nuqs';
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isPro, isLoading } = useBilling();
+  const { data: mailboxes = [] } = useMailboxes();
   //   const trpc = useTRPC();
   //   const { mutateAsync: createMeet } = useMutation(trpc.meet.create.mutationOptions());
   const [showUpgrade, setShowUpgrade] = useState(() => {
@@ -53,17 +55,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (navigationConfig[currentSection]) {
       const items = [...navigationConfig[currentSection].sections];
 
-      if (currentSection === 'mail' && stats && stats.length) {
-        if (items[0]?.items[0]) {
-          items[0].items[0].badge =
-            stats.find((stat) => stat.label?.toLowerCase() === FOLDERS.INBOX)?.count ?? 0;
-        }
-        if (items[0]?.items[3]) {
-          items[0].items[3].badge =
-            stats.find((stat) => stat.label?.toLowerCase() === FOLDERS.SENT)?.count ?? 0;
-        }
+      if (currentSection === 'mail') {
+        items[0] = { ...items[0]!, title: m['mailboxes.all'](), items: items[0]!.items.map(item => ({ ...item, badge: undefined })) };
+        const folders = navigationConfig.mail!.sections.flatMap(section => section.items).filter(item => item.id !== 'snoozed');
+        for (const account of mailboxes) items.push({ title: account.email, collapsible: true, items: folders.map(item => ({ ...item, badge: undefined, shortcut: undefined, url: `${item.url}?accountId=${encodeURIComponent(account.id)}` })) });
       }
-
       return { currentSection, navItems: items };
     } else {
       return {
@@ -71,7 +67,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         navItems: [],
       };
     }
-  }, [location.pathname, stats]);
+  }, [location.pathname, stats, mailboxes]);
 
   const showComposeButton = currentSection === 'mail';
   const { state } = useSidebar();
@@ -179,6 +175,7 @@ function ComposeButton() {
 
   const [dialogOpen, setDialogOpen] = useQueryState('isComposeOpen');
   const [, setDraftId] = useQueryState('draftId');
+  const [, setThreadId] = useQueryState('threadId');
   const [, setTo] = useQueryState('to');
   const [, setActiveReplyId] = useQueryState('activeReplyId');
   const [, setMode] = useQueryState('mode');
@@ -187,6 +184,7 @@ function ComposeButton() {
     if (!open) {
       setDialogOpen(null);
     } else {
+      setThreadId(null);
       setDialogOpen('true');
     }
     setDraftId(null);

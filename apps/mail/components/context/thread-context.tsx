@@ -1,3 +1,4 @@
+import type { IGetThreadResponse } from '../../../server/src/lib/driver/types';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -62,6 +63,7 @@ interface EmailContextMenuProps {
   isSent?: boolean;
   isBin?: boolean;
   refreshCallback?: () => void;
+  preview?: IGetThreadResponse;
 }
 
 const LabelsList = ({ threadId, bulkSelected, onCreateLabel }: { threadId: string; bulkSelected: string[]; onCreateLabel: () => void }) => {
@@ -146,6 +148,7 @@ const LabelsList = ({ threadId, bulkSelected, onCreateLabel }: { threadId: strin
 
 export function ThreadContextMenu({
   children,
+  preview,
   threadId,
   isInbox = true,
   isSpam = false,
@@ -160,7 +163,7 @@ export function ThreadContextMenu({
   const isSnoozedFolder = currentFolder === FOLDERS.SNOOZED;
   const [, setMode] = useQueryState('mode');
   const [, setThreadId] = useQueryState('threadId');
-  const { data: threadData } = useThread(threadId);
+  const { data: threadData } = useThread(threadId, preview);
   const [, setActiveReplyId] = useQueryState('activeReplyId');
   const optimisticState = useOptimisticThreadState(threadId);
   const trpc = useTRPC();

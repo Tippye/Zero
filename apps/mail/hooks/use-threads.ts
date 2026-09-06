@@ -1,19 +1,21 @@
 import { backgroundQueueAtom, isThreadInBackgroundQueueAtom } from '@/store/backgroundQueue';
-import { useInfiniteQuery, useQuery, useMutation } from '@tanstack/react-query';
+import { useMailboxScope, useMailboxes, splitMailboxId } from './use-mailboxes';
 import type { IGetThreadResponse } from '../../server/src/lib/driver/types';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { mailReadRetryOptions } from '@/lib/mail-read-retry';
 import { useSearchValue } from '@/hooks/use-search-value';
 import { useTRPC } from '@/providers/query-provider';
 import useSearchLabels from './use-labels-search';
 import { useSession } from '@/lib/auth-client';
 import { useAtom, useAtomValue } from 'jotai';
-import { useSettings } from './use-settings';
 import { useParams } from 'react-router';
-import { useTheme } from 'next-themes';
-import { useQueryState } from 'nuqs';
 import { useMemo } from 'react';
 
 export const useThreads = () => {
+  const accountId = useMailboxScope();
+  const mailboxQuery = useMailboxes();
   const { folder } = useParams<{ folder: string }>();
+  const { data: session } = useSession();
   const [searchValue] = useSearchValue();
   const [backgroundQueue] = useAtom(backgroundQueueAtom);
   const isInQueue = useAtomValue(isThreadInBackgroundQueueAtom);
@@ -23,11 +25,15 @@ export const useThreads = () => {
   const threadsQuery = useInfiniteQuery(
     trpc.mail.listThreads.infiniteQueryOptions(
       {
+        accountId,
         q: searchValue.value,
         folder,
         labelIds: labels,
       },
       {
+        // Global hotkeys and the command palette also mount on settings pages.
+        enabled: !!folder && !!session?.user.id,
+        trpc: { abortOnUnmount: true },
         initialCursor: '',
         getNextPageParam: (lastPage) => lastPage?.nextPageToken ?? null,
         staleTime: 60 * 1000 * 1, // 1 minute
@@ -44,9 +50,22 @@ export const useThreads = () => {
       ? threadsQuery.data.pages
           .flatMap((e) => e.threads)
           .filter(Boolean)
+          .filter((item) =>
+            mailboxQuery.data?.some(
+              (account) =>
+                account.id ===
+                ((item as { accountId?: string }).accountId || splitMailboxId(item.id)?.accountId),
+            ),
+          )
           .filter((e) => !isInQueue(`thread:${e.id}`))
       : [];
-  }, [threadsQuery.data, threadsQuery.dataUpdatedAt, isInQueue, backgroundQueue]);
+  }, [
+    threadsQuery.data,
+    threadsQuery.dataUpdatedAt,
+    isInQueue,
+    backgroundQueue,
+    mailboxQuery.data,
+  ]);
 
   const isEmpty = useMemo(() => threads.length === 0, [threads]);
   const isReachingEnd =
@@ -59,31 +78,41 @@ export const useThreads = () => {
     await threadsQuery.fetchNextPage();
   };
 
-  return [threadsQuery, threads, isReachingEnd, loadMore] as const;
+  return [
+    { ...threadsQuery, isLoading: threadsQuery.isLoading || mailboxQuery.isLoading },
+    threads,
+    isReachingEnd,
+    loadMore,
+  ] as const;
 };
 
-export const useThread = (threadId: string | null) => {
+export const useThread = (threadId: string | null, preview?: IGetThreadResponse) => {
+  const { folder } = useParams<{ folder: string }>();
   const { data: session } = useSession();
-  const [_threadId] = useQueryState('threadId');
-  const id = threadId ? threadId : _threadId;
+  const id = threadId;
   const trpc = useTRPC();
-  const { data: settings } = useSettings();
-  const { theme: systemTheme } = useTheme();
 
   const threadQuery = useQuery(
     trpc.mail.get.queryOptions(
       {
         id: id!,
+        ...(folder === 'sent' ? { fresh: true } : {}),
       },
       {
-        enabled: !!id && !!session?.user.id,
-        staleTime: 1000 * 60 * 60, // 1 minute
+        enabled: !!id && !!session?.user.id && !preview,
+        placeholderData: preview,
+        trpc: { abortOnUnmount: false },
+        ...mailReadRetryOptions,
+        staleTime: folder === 'sent' ? 30_000 : 1000 * 60 * 60,
+        // Nested readers share fresh data; exhausted retries require user action.
+        refetchOnMount: true,
       },
     ),
   );
 
+  const threadData = preview || threadQuery.data;
   const { latestDraft, isGroupThread, finalData, latestMessage } = useMemo(() => {
-    if (!threadQuery.data) {
+    if (!threadData) {
       return {
         latestDraft: undefined,
         isGroupThread: false,
@@ -92,77 +121,31 @@ export const useThread = (threadId: string | null) => {
       };
     }
 
-    const latestDraft = threadQuery.data.latest?.id
-      ? threadQuery.data.messages.findLast((e) => e.isDraft)
+    const latestDraft = threadData.latest?.id
+      ? threadData.messages.findLast((e) => e.isDraft)
       : undefined;
 
-    const isGroupThread = threadQuery.data.latest?.id
+    const isGroupThread = threadData.latest?.id
       ? (() => {
           const totalRecipients = [
-            ...(threadQuery.data.latest.to || []),
-            ...(threadQuery.data.latest.cc || []),
-            ...(threadQuery.data.latest.bcc || []),
+            ...(threadData.latest.to || []),
+            ...(threadData.latest.cc || []),
+            ...(threadData.latest.bcc || []),
           ].length;
           return totalRecipients > 1;
         })()
       : false;
 
-    const nonDraftMessages = threadQuery.data.messages.filter((e) => !e.isDraft);
+    const nonDraftMessages = threadData.messages.filter((e) => !e.isDraft);
     const latestMessage = nonDraftMessages[nonDraftMessages.length - 1];
 
     const finalData: IGetThreadResponse = {
-      ...threadQuery.data,
+      ...threadData,
       messages: nonDraftMessages,
     };
 
     return { latestDraft, isGroupThread, finalData, latestMessage };
-  }, [threadQuery.data]);
-
-  const { mutateAsync: processEmailContent } = useMutation(
-    trpc.mail.processEmailContent.mutationOptions(),
-  );
-
-  // Extract image loading condition to avoid duplication
-  const shouldLoadImages = useMemo(() => {
-    if (!settings?.settings || !latestMessage?.sender?.email) return false;
-    
-    return settings.settings.externalImages ||
-      settings.settings.trustedSenders?.includes(latestMessage.sender.email) ||
-      false;
-  }, [settings?.settings, latestMessage?.sender?.email]);
-
-  // Prefetch query - intentionally unused, just for caching
-  useQuery({
-    queryKey: [
-      'email-content',
-      latestMessage?.id,
-      shouldLoadImages,
-      systemTheme,
-    ],
-    queryFn: async () => {
-      if (!latestMessage?.decodedBody || !settings?.settings) return null;
-
-      const userTheme =
-        settings.settings.colorTheme === 'system' ? systemTheme : settings.settings.colorTheme;
-      const theme = userTheme === 'dark' ? 'dark' : 'light';
-
-      const result = await processEmailContent({
-        html: latestMessage.decodedBody,
-        shouldLoadImages,
-        theme,
-      });
-
-      return {
-        html: result.processedHtml,
-        hasBlockedImages: result.hasBlockedImages,
-      };
-    },
-    enabled: !!latestMessage?.decodedBody && !!settings?.settings,
-    staleTime: 30 * 60 * 1000, // 30 minutes
-    gcTime: 60 * 60 * 1000, // 1 hour
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-  });
+  }, [threadData]);
 
   return { ...threadQuery, data: finalData, isGroupThread, latestDraft };
 };

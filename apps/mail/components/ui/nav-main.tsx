@@ -1,5 +1,6 @@
+import { MailSyncStatus } from '@/components/mail/sync-status';
 import { SidebarGroup, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from './sidebar';
-import { Collapsible, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { useCommandPalette } from '../context/command-palette-context.jsx';
 import { LabelDialog } from '@/components/labels/label-dialog';
 import { useActiveConnection } from '@/hooks/use-connections';
@@ -19,7 +20,7 @@ import { useStats } from '@/hooks/use-stats';
 import SidebarLabels from './sidebar-labels';
 import { useCallback, useRef } from 'react';
 import { BASE_URL } from '@/lib/constants';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as React from 'react';
@@ -42,6 +43,7 @@ interface NavMainProps {
     title: string;
     items: NavItemProps[];
     isActive?: boolean;
+    collapsible?: boolean;
   }[];
 }
 
@@ -51,21 +53,25 @@ type IconRefType = SVGSVGElement & {
 };
 
 export function NavMain({ items }: NavMainProps) {
+  const { data: activeAccount } = useActiveConnection();
   const location = useLocation();
   const pathname = location.pathname;
-  const searchParams = new URLSearchParams();
+  const searchParams = new URLSearchParams(location.search);
 
   const trpc = useTRPC();
-  const { data: intercomToken } = useQuery(trpc.user.getIntercomToken.queryOptions());
+  const intercomEnabled = import.meta.env.VITE_PUBLIC_INTERCOM_ENABLED !== 'false';
+  const { data: intercomToken } = useQuery(
+    trpc.user.getIntercomToken.queryOptions(undefined, { enabled: intercomEnabled }),
+  );
 
   React.useEffect(() => {
-    if (intercomToken) {
+    if (intercomEnabled && intercomToken) {
       Intercom({
         app_id: 'aavenrba',
         intercom_user_jwt: intercomToken,
       });
     }
-  }, [intercomToken]);
+  }, [intercomEnabled, intercomToken]);
 
   const { mutateAsync: createLabel } = useMutation(trpc.labels.create.mutationOptions());
 
@@ -88,7 +94,7 @@ export function NavMain({ items }: NavMainProps) {
   const isValidInternalUrl = useCallback((url: string) => {
     if (!url) return false;
     // Accept absolute paths as they are always internal
-    if (url.startsWith('/')) return true;
+    if (url.startsWith('/')) return !url.startsWith('//') && !url.includes('\\');
     try {
       const urlObj = new URL(url, BASE_URL);
       // Prevent redirects to external domains by checking against our base URL
@@ -106,26 +112,26 @@ export function NavMain({ items }: NavMainProps) {
       // Handle settings navigation
       if (item.isSettingsButton) {
         // Include current path with category query parameter if present
-        const currentPath = pathname;
+        const currentPath = pathname + location.search;
         return `${item.url}?from=${encodeURIComponent(currentPath)}`;
       }
 
       // Handle back button with redirect protection
       if (item.isBackButton) {
         if (currentFrom) {
-          const decodedFrom = decodeURIComponent(currentFrom);
+          const decodedFrom = currentFrom;
           if (isValidInternalUrl(decodedFrom)) {
             return decodedFrom;
           }
         }
         // Fall back to safe default if URL is missing or invalid
-        return '/mail';
+        return '/mail/inbox';
       }
 
       // Handle settings pages navigation
       if (item.isSettingsPage && currentFrom) {
         // Validate and sanitize the 'from' parameter to prevent open redirects
-        const decodedFrom = decodeURIComponent(currentFrom);
+        const decodedFrom = currentFrom;
         if (isValidInternalUrl(decodedFrom)) {
           return `${item.url}?from=${encodeURIComponent(currentFrom)}`;
         }
@@ -135,10 +141,10 @@ export function NavMain({ items }: NavMainProps) {
 
       return item.url;
     },
-    [pathname, searchParams, isValidInternalUrl],
+    [pathname, searchParams, isValidInternalUrl, activeAccount],
   );
 
-  const { data: activeAccount } = useActiveConnection();
+
 
   const isUrlActive = useCallback(
     (url: string) => {
@@ -154,6 +160,7 @@ export function NavMain({ items }: NavMainProps) {
       const urlParams = new URLSearchParams(urlObj.search);
       const currentParams = new URLSearchParams(searchParams);
 
+      if (cleanPath.startsWith('/mail') && urlParams.get('accountId') !== currentParams.get('accountId')) return false;
       for (const [key, value] of urlParams) {
         if (currentParams.get(key) !== value) return false;
       }
@@ -186,6 +193,7 @@ export function NavMain({ items }: NavMainProps) {
       <SidebarMenu>
         {isBottomNav ? (
           <>
+            <div className={state === 'collapsed' ? 'hidden' : 'mb-2'}><MailSyncStatus /></div>
             <SidebarMenuButton
               onClick={() => show()}
               tooltip={state === 'collapsed' ? m['common.commandPalette.groups.help']() : undefined}
@@ -208,20 +216,20 @@ export function NavMain({ items }: NavMainProps) {
         {items.map((section) => (
           <Collapsible
             key={section.title}
-            defaultOpen={section.isActive}
+            defaultOpen={true}
             className="group/collapsible"
           >
             <SidebarMenuItem>
               {state !== 'collapsed' ? (
                 section.title ? (
-                  <p className="text-muted-foreground mx-2 mb-2 text-[13px] dark:text-[#898989]">
-                    {section.title}
-                  </p>
+                  section.collapsible ? <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 px-2 pb-2 text-left text-[13px] text-muted-foreground">
+                    <span className="truncate" title={section.title}>{section.title}</span><ChevronDown className="size-3 shrink-0 transition-transform group-data-[state=closed]:-rotate-90" />
+                  </CollapsibleTrigger> : <p className="text-muted-foreground mx-2 mb-2 text-[13px] dark:text-[#898989]">{section.title}</p>
                 ) : null
               ) : (
                 <div className="bg-muted-foreground/50 mx-2 mb-4 mt-2 h-[0.5px] dark:bg-[#262626]" />
               )}
-              <div className="z-20 space-y-1 pb-2">
+              <CollapsibleContent className="z-20 space-y-1 pb-2">
                 {section.items.map((item) => (
                   <NavItem
                     key={item.url}
@@ -232,7 +240,7 @@ export function NavMain({ items }: NavMainProps) {
                     title={item.title}
                   />
                 ))}
-              </div>
+              </CollapsibleContent>
             </SidebarMenuItem>
           </Collapsible>
         ))}
@@ -312,14 +320,7 @@ function NavItem(item: NavItemProps & { href: string }) {
             <p className="relative bottom-px mt-0.5 min-w-0 flex-1 truncate text-[13px]">
               {item.title}
             </p>
-            {stats &&
-              stats.some((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase()) && (
-                <Badge className="text-muted-foreground ml-auto shrink-0 rounded-full border-none bg-transparent">
-                  {stats
-                    .find((stat) => stat.label?.toLowerCase() === item.id?.toLowerCase())
-                    ?.count?.toLocaleString() || '0'}
-                </Badge>
-              )}
+            {typeof item.badge === 'number' && <Badge className="text-muted-foreground ml-auto shrink-0 rounded-full border-none bg-transparent">{item.badge.toLocaleString()}</Badge>}
           </Link>
         </SidebarMenuButton>
       </CollapsibleTrigger>

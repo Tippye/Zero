@@ -1,3 +1,4 @@
+import { useEnsureLlm } from '@/hooks/use-llm';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAIFullScreen, useAISidebar } from '../ui/ai-sidebar';
 import { VoiceProvider } from '@/providers/voice-provider';
@@ -236,8 +237,10 @@ export function AIChat({
     },
   });
 
+  const ensureLlm = useEnsureLlm();
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!(await ensureLlm())) return;
     handleSubmit(e);
     editor.commands.clearContent(true);
     setTimeout(() => {

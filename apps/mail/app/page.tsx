@@ -4,6 +4,7 @@ import type { Route } from './+types/page';
 import { redirect } from 'react-router';
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+  if (import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true') throw redirect('/settings/connections');
   const session = await authProxy.api.getSession({ headers: request.headers });
   if (session?.user.id) throw redirect('/mail/inbox');
   return null;

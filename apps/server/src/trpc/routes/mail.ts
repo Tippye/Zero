@@ -63,11 +63,16 @@ export const mailRouter = router({
     .input(
       z.object({
         id: z.string(),
+        fresh: z.boolean().optional(),
       }),
     )
     .output(IGetThreadResponseSchema)
     .query(async ({ input, ctx }) => {
       const { activeConnection } = ctx;
+      if (input.fresh && activeConnection.providerId === 'google') {
+        const { stub: agent } = await getZeroAgent(activeConnection.id, ctx.c.executionCtx);
+        return await agent.getProviderThread(input.id);
+      }
       const result = await getThread(activeConnection.id, input.id);
       return result.result;
     }),
@@ -108,7 +113,8 @@ export const mailRouter = router({
       // Apply folder-to-label mapping when no search query is provided
       const effectiveLabelIds = labelIds;
 
-      if (q) {
+      if (q || (activeConnection.providerId === 'google' && folder === FOLDERS.SENT)) {
+        // Gmail is authoritative for sent mail; local folder sync may lag or be disabled.
         threadsResponse = await agent.rawListThreads({
           query: q,
           maxResults,
@@ -603,19 +609,16 @@ export const mailRouter = router({
         ),
       } as typeof mail & { attachments: any[] };
 
-      if (draftId) {
-        await agent.stub.sendDraft(draftId, mailWithAttachments);
-      } else {
-        await agent.stub.create(mailWithAttachments);
-      }
-
-      console.log('[send] input.threadId:', input);
-
-      if (input.threadId)
-        ctx.c.executionCtx.waitUntil(reSyncThread(activeConnection.id, input.threadId));
+      const result = draftId
+        ? await agent.stub.sendDraft(draftId, mailWithAttachments)
+        : await agent.stub.create(mailWithAttachments);
+      // Keep the provider receipt. Newly composed messages have no input.threadId.
+      const sentThreadId = result?.threadId || input.threadId;
+      if (sentThreadId) ctx.c.executionCtx.waitUntil(reSyncThread(activeConnection.id, sentThreadId));
       ctx.c.executionCtx.waitUntil(afterTask());
-      return { success: true };
+      return { success: true, messageId: result?.id || undefined, threadId: sentThreadId };
     }),
+
   unsend: activeDriverProcedure
     .input(
       z.object({

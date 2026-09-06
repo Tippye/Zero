@@ -1,3 +1,4 @@
+import { ensureWorkspaceSession } from '@/lib/workspace-session';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +12,7 @@ import { useLoaderData } from 'react-router';
 import type { Route } from './+types/page';
 
 export async function clientLoader({ request }: Route.ClientLoaderArgs) {
+  if (import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true') await ensureWorkspaceSession(AbortSignal.timeout(10000));
   const session = await authProxy.api.getSession({ headers: request.headers });
   if (!session) return Response.redirect(`${import.meta.env.VITE_PUBLIC_APP_URL}/login`);
   const url = new URL(request.url);

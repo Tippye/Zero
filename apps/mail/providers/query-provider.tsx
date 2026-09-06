@@ -3,13 +3,22 @@ import {
   type PersistedClient,
   type Persister,
 } from '@tanstack/react-query-persist-client';
-import { QueryCache, QueryClient, hashKey, type InfiniteData } from '@tanstack/react-query';
+import {
+  QueryCache,
+  QueryClient,
+  hashKey,
+  defaultShouldDehydrateQuery,
+  type InfiniteData,
+} from '@tanstack/react-query';
+import { createTRPCClient, httpBatchLink, splitLink } from '@trpc/client';
+import { splitMailboxId } from '../../server/src/lib/mailboxes/ids';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { useMemo, type PropsWithChildren } from 'react';
 import type { AppRouter } from '@zero/server/trpc';
 import { CACHE_BURST_KEY } from '@/lib/constants';
+import { showLlmSetup } from '@/lib/llm-notice';
 import { signOut } from '@/lib/auth-client';
+import { bimiLink } from '@/lib/bimi-link';
 import { get, set, del } from 'idb-keyval';
 import superjson from 'superjson';
 
@@ -87,22 +96,37 @@ export const { TRPCProvider, useTRPC, useTRPCClient } = createTRPCContext<AppRou
 
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
-    // loggerLink({ enabled: () => true }),
-    httpBatchLink({
-      transformer: superjson,
-      url: getUrl(),
-      methodOverride: 'POST',
-      maxItems: 1,
-      fetch: (url, options) =>
-        fetch(url, { ...options, credentials: 'include' }).then((res) => {
-          const currentPath = new URL(window.location.href).pathname;
-          const redirectPath = res.headers.get('X-Zero-Redirect');
-          if (!!redirectPath && redirectPath !== currentPath) {
-            window.location.href = redirectPath;
-            res.headers.delete('X-Zero-Redirect');
-          }
-          return res;
-        }),
+    splitLink({
+      condition: (op) => op.path.startsWith('bimi.'),
+      true: bimiLink(getUrl()),
+      false: httpBatchLink({
+        transformer: superjson,
+        headers: () => {
+          const params = new URLSearchParams(window.location.search);
+          const messageAccount = splitMailboxId(
+            params.get('threadId') || params.get('draftId') || '',
+          )?.accountId;
+          return {
+            'X-Mailbox-Account':
+              messageAccount || params.get('senderId') || params.get('accountId') || 'all',
+          };
+        },
+        url: getUrl(),
+        methodOverride: 'POST',
+        maxItems: 1,
+        fetch: (url, options) =>
+          fetch(url, { ...options, credentials: 'include' }).then(async (res) => {
+            if (!res.ok && (await res.clone().text()).includes('LLM_NOT_CONFIGURED'))
+              showLlmSetup();
+            const currentPath = new URL(window.location.href).pathname;
+            const redirectPath = res.headers.get('X-Zero-Redirect');
+            if (!!redirectPath && redirectPath !== currentPath) {
+              window.location.href = redirectPath;
+              res.headers.delete('X-Zero-Redirect');
+            }
+            return res;
+          }),
+      }),
     }),
   ],
 });
@@ -125,6 +149,10 @@ export function QueryProvider({
         persister,
         buster: CACHE_BURST_KEY,
         maxAge: 1000 * 60 * 60 * 24, // 24 hours
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) =>
+            query.meta?.persist !== false && defaultShouldDehydrateQuery(query),
+        },
       }}
       onSuccess={() => {
         const threadQueryKey = [['mail', 'listThreads'], { type: 'infinite' }];

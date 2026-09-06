@@ -1,3 +1,4 @@
+import { useComposerMailbox } from '@/hooks/use-mailboxes';
 import { useUndoSend } from '@/hooks/use-undo-send';
 import { constructReplyBody, constructForwardBody } from '@/lib/utils';
 import { useActiveConnection } from '@/hooks/use-connections';
@@ -5,7 +6,7 @@ import { useEmailAliases } from '@/hooks/use-email-aliases';
 import { EmailComposer } from '../create/email-composer';
 import { useHotkeysContext } from 'react-hotkeys-hook';
 import { useTRPC } from '@/providers/query-provider';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '@/hooks/use-settings';
 import { useThread } from '@/hooks/use-threads';
 import { useSession } from '@/lib/auth-client';
@@ -32,11 +33,13 @@ export default function ReplyCompose({ messageId }: ReplyComposeProps) {
   const [, setActiveReplyId] = useQueryState('activeReplyId');
   const { data: emailData, refetch, latestDraft } = useThread(threadId);
   const { data: draft } = useDraft(draftId ?? null);
+  const queryClient = useQueryClient();
   const trpc = useTRPC();
   const { mutateAsync: sendEmail } = useMutation(trpc.mail.send.mutationOptions());
-  const { data: activeConnection } = useActiveConnection();
+  const { account: activeConnection } = useComposerMailbox();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   const { data: session } = useSession();
+  const { account: composerAccount } = useComposerMailbox();
   const { handleUndoSend } = useUndoSend();
 
   // Find the specific message to reply to
@@ -106,8 +109,10 @@ export default function ReplyCompose({ messageId }: ReplyComposeProps) {
     message: string;
     attachments: File[];
     scheduleAt?: string;
+    draftId?: string;
+    accountId?: string;
   }) => {
-    if (!replyToMessage || !activeConnection?.email) return;
+    if (!replyToMessage || !activeConnection?.email) throw new Error('Reply connection is unavailable');
 
     try {
       const userEmail = activeConnection.email.toLowerCase();
@@ -188,7 +193,8 @@ export default function ReplyCompose({ messageId }: ReplyComposeProps) {
         message: emailBody,
         attachments: await serializeFiles(data.attachments),
         fromEmail: fromEmail,
-        draftId: draftId ?? undefined,
+        draftId: data.draftId,
+      accountId: data.accountId || composerAccount?.id,
         headers: {
           'In-Reply-To': replyToMessage?.messageId ?? '',
           References: [
@@ -205,11 +211,19 @@ export default function ReplyCompose({ messageId }: ReplyComposeProps) {
         scheduleAt: data.scheduleAt,
       });
 
+      if (!result.success) throw new Error('error' in result ? result.error : 'Send was not accepted');
+
+    void Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: trpc.mail.listThreads.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.drafts.list.queryKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.drafts.get.queryKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.mail.get.queryKey() }),
+      ]);
       posthog.capture('Reply Email Sent');
 
       // Reset states
       setMode(null);
-      await refetch();
+      void refetch();
       
       handleUndoSend(result, settings, {
         to: data.to,
@@ -222,7 +236,7 @@ export default function ReplyCompose({ messageId }: ReplyComposeProps) {
       });
     } catch (error) {
       console.error('Error sending email:', error);
-      toast.error(m['pages.createEmail.failedToSendEmail']());
+      throw error;
     }
   };
 

@@ -1,3 +1,4 @@
+import { useMailboxes } from '@/hooks/use-mailboxes';
 import {
   HelpCircle,
   LogOut,
@@ -89,7 +90,8 @@ function SyncingStatusIndicator({
 
 export function NavUser() {
   const { data: session } = useSession();
-  const { data } = useConnections();
+  const { data: mailboxAccounts = [] } = useMailboxes();
+  const data = { connections: mailboxAccounts };
   const [isRendered, setIsRendered] = useState(false);
   const { theme, resolvedTheme, setTheme } = useTheme();
   const { state } = useSidebar();
@@ -100,6 +102,7 @@ export function NavUser() {
   );
   const { mutateAsync: handleForceSync } = useMutation(trpc.mail.forceSync.mutationOptions());
   const { openBillingPortal, customer: billingCustomer, isPro } = useBilling();
+  const selfHosted = import.meta.env.VITE_PUBLIC_SELF_HOSTED === 'true';
   const pathname = useLocation().pathname;
   const queryClient = useQueryClient();
   const { data: activeConnection, refetch: refetchActiveConnection } = useActiveConnection();
@@ -131,22 +134,7 @@ export function NavUser() {
   useEffect(() => setIsRendered(true), []);
 
   const handleAccountSwitch = (connectionId: string) => async () => {
-    if (connectionId === activeConnection?.id) return;
-
-    try {
-      setLoading(true, m['common.navUser.switchingAccounts']());
-      setThreadId(null);
-      await setDefaultConnection({ connectionId });
-      queryClient.clear();
-      await queryClient.refetchQueries({ queryKey: trpc.mail.listThreads.infiniteQueryKey() });
-    } catch (error) {
-      console.error('Error switching accounts:', error);
-      toast.error(m['common.navUser.failedToSwitchAccount']());
-
-      await refetchActiveConnection();
-    } finally {
-      setLoading(false);
-    }
+    window.location.href = '/mail/inbox?accountId=' + encodeURIComponent(connectionId);
   };
 
   const handleLogout = async () => {
@@ -162,7 +150,7 @@ export function NavUser() {
   };
 
   const otherConnections = useMemo(() => {
-    if (!data || !activeAccount) return [];
+    if (!data) return [];
     return data.connections.filter((connection) => connection.id !== activeAccount?.id);
   }, [data, activeAccount]);
 
@@ -233,7 +221,7 @@ export function NavUser() {
                       <div className="w-full">
                         <div className="flex items-center justify-center gap-0.5 text-sm font-medium">
                           {activeAccount.name || session.user.name || 'User'}
-                          {isPro && (
+                          {isPro && !selfHosted && (
                             <BadgeCheck
                               className="h-4 w-4 text-white dark:text-[#141414]"
                               fill="#1D9BF0"
@@ -287,7 +275,7 @@ export function NavUser() {
                           </div>
                         </DropdownMenuItem>
                       ))}
-                    <AddConnectionDialog />
+                    <DropdownMenuItem asChild><a href="/settings/connections">{m['pages.settings.connections.addEmail']()}</a></DropdownMenuItem>
 
                     <DropdownMenuSeparator className="my-1" />
 
@@ -316,7 +304,7 @@ export function NavUser() {
                       <p className="text-[13px] opacity-60">Clear Local Cache</p>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleForceSync()}>
+                  <DropdownMenuItem disabled={activeAccount?.providerId !== 'google'} onClick={() => handleForceSync()}>
                     <div className="flex items-center gap-2">
                       <RefreshCcw size={16} className="opacity-60" />
                       <p className="text-[13px] opacity-60">Force re-sync</p>
@@ -412,13 +400,7 @@ export function NavUser() {
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="flex cursor-pointer items-center">
-                  <div className="relative">
-                    <div className="bg-muted size-6 animate-pulse rounded-[5px]" />
-                  </div>
-                </div>
-              )}
+              ) : null}
               {otherConnections.slice(0, 2).map((connection) => (
                 <Tooltip key={connection.id}>
                   <TooltipTrigger asChild>
@@ -508,7 +490,7 @@ export function NavUser() {
                 </DropdownMenu>
               )}
 
-              {isPro ? (
+              {selfHosted ? null : isPro ? (
                 <AddConnectionDialog>
                   <Button className="hover:bg-offsetLight/80 dark:hover:bg-offsetDark/80 flex h-7 w-7 cursor-pointer items-center justify-center rounded-[5px] border border-dashed bg-transparent px-0 text-black dark:bg-[#262626] dark:text-[#929292]">
                     <Plus className="size-4" />
@@ -567,7 +549,7 @@ export function NavUser() {
                       <p className="text-[13px] opacity-60">Clear Local Cache</p>
                     </div>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleForceSync()}>
+                  <DropdownMenuItem disabled={activeAccount?.providerId !== 'google'} onClick={() => handleForceSync()}>
                     <div className="flex items-center gap-2">
                       <RefreshCcw size={16} className="opacity-60" />
                       <p className="text-[13px] opacity-60">Force re-sync</p>
@@ -639,14 +621,16 @@ export function NavUser() {
               <p className={cn('max-w-[14.5ch] truncate text-[13px]')}>
                 {activeAccount?.name || session.user.name || 'User'}
               </p>
-              {isPro ? (
+              {selfHosted ? null : isPro ? (
                 <BadgeCheck className="h-4 w-4 text-white dark:text-[#141414]" fill="#1D9BF0" />
               ) : null}
             </div>
-            <div className="h-5 max-w-[200px] overflow-hidden truncate text-xs font-normal leading-none text-[#898989]">
-              {activeAccount?.email || session.user.email}
-            </div>
-            {!isPro && (
+            {(activeAccount?.email || !session.user.isAnonymous) && (
+              <div className="h-5 max-w-[200px] overflow-hidden truncate text-xs font-normal leading-none text-[#898989]">
+                {activeAccount?.email || session.user.email}
+              </div>
+            )}
+            {!selfHosted && !isPro && (
               <button
                 onClick={() => setPricingDialog('true')}
                 className="flex h-5 items-center gap-1 rounded-full border px-1 pr-1.5 hover:bg-transparent"

@@ -1,3 +1,4 @@
+import { m } from '@/paraglide/messages';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -65,6 +66,17 @@ export const useUndoSend = () => {
     settings: { settings: UserSettings } | undefined,
     emailData?: EmailData
   ) => {
+    if (result && typeof result === 'object' && 'success' in result && result.success) {
+      const queued = ('queued' in result && result.queued) || ('scheduled' in result && result.scheduled);
+      if (!queued) {
+        toast.success(m['sendUi.sent'](), { action: { label: m['sendUi.viewSent'](), onClick: () => { window.location.href = '/mail/sent'; } } });
+        return;
+      }
+      if (!settings?.settings?.undoSendEnabled) {
+        toast.success(m['sendUi.scheduled']());
+        return;
+      }
+    }
     if (isSendResult(result) && settings?.settings?.undoSendEnabled) {
       const { messageId, sendAt } = result;
 

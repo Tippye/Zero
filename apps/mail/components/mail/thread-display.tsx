@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useOptimisticThreadState } from '@/components/mail/optimistic-thread-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOptimisticActions } from '@/hooks/use-optimistic-actions';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { focusedIndexAtom } from '@/hooks/use-mail-navigation';
 import { type ThreadDestination } from '@/lib/thread-actions';
 import { handleUnsubscribe } from '@/lib/email-utils.client';
@@ -34,9 +35,9 @@ import { useAnimations } from '@/hooks/use-animations';
 import { AnimatePresence, motion } from 'motion/react';
 import { MailDisplaySkeleton } from './mail-skeleton';
 import { useTRPC } from '@/providers/query-provider';
-import { useMutation } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { MoveCategory } from './move-category';
 import { cleanHtml } from '@/lib/email-utils';
 import ReplyCompose from './reply-composer';
 import { NotesPanel } from './note-panel';
@@ -158,7 +159,14 @@ export function ThreadDisplay() {
 
   const folder = params?.folder ?? 'inbox';
   const [id, setThreadId] = useQueryState('threadId');
-  const { data: emailData, isLoading, refetch: refetchThread } = useThread(id ?? null);
+  const {
+    data: emailData,
+    isLoading,
+    isFetching,
+    failureCount,
+    error: readError,
+    refetch: retryRead,
+  } = useThread(id ?? null);
   const [, items] = useThreads();
   const [isStarred, setIsStarred] = useState(false);
   const [isImportant, setIsImportant] = useState(false);
@@ -184,7 +192,19 @@ export function ThreadDisplay() {
 
   const [focusedIndex, setFocusedIndex] = useAtom(focusedIndexAtom);
   const trpc = useTRPC();
-  const { mutateAsync: toggleImportant } = useMutation(trpc.mail.toggleImportant.mutationOptions());
+  const queryClient = useQueryClient();
+  const { mutate: markAsImportant, isPending: isMarkingImportant } = useMutation(
+    trpc.mail.markAsImportant.mutationOptions({
+      onSuccess: async () => {
+        toast.success(m['common.mail.markedAsImportant']());
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.mail.listThreads.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.mail.get.pathKey() }),
+        ]);
+      },
+      onError: () => toast.error('Failed to mark as important'),
+    }),
+  );
   const [, setIsComposeOpen] = useQueryState('isComposeOpen');
 
   // Get optimistic state for this thread
@@ -648,16 +668,10 @@ export function ThreadDisplay() {
     }
   };
 
-  const handleToggleImportant = useCallback(async () => {
-    if (!emailData || !id) return;
-    await toggleImportant({ ids: [id] });
-    await refetchThread();
-    if (isImportant) {
-      toast.success(m['common.mail.markedAsImportant']());
-    } else {
-      toast.error('Failed to mark as important');
-    }
-  }, [emailData, id]);
+  const handleMarkImportant = useCallback(() => {
+    if (!id || isMarkingImportant) return;
+    markAsImportant({ ids: [id] });
+  }, [id, isMarkingImportant, markAsImportant]);
 
   // Set initial star state based on email data
   useEffect(() => {
@@ -732,7 +746,7 @@ export function ThreadDisplay() {
                 <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-2">
                   <button
                     onClick={toggleAISidebar}
-                    className="inline-flex h-7 items-center justify-center gap-0.5 overflow-hidden rounded-lg border bg-white px-2 dark:border-none dark:bg-[#313131] hover:bg-gray-100 dark:hover:bg-[#404040] transition-colors cursor-pointer"
+                    className="inline-flex h-7 cursor-pointer items-center justify-center gap-0.5 overflow-hidden rounded-lg border bg-white px-2 transition-colors hover:bg-gray-100 dark:border-none dark:bg-[#313131] dark:hover:bg-[#404040]"
                   >
                     <Sparkles className="mr-1 h-3.5 w-3.5 fill-[#959595]" />
                     <div className="flex items-center justify-center gap-2.5 px-0.5">
@@ -743,7 +757,7 @@ export function ThreadDisplay() {
                   </button>
                   <button
                     onClick={() => setIsComposeOpen('true')}
-                    className="inline-flex h-7 items-center justify-center gap-0.5 overflow-hidden rounded-lg border bg-white px-2 dark:border-none dark:bg-[#313131] hover:bg-gray-100 dark:hover:bg-[#404040] transition-colors cursor-pointer"
+                    className="inline-flex h-7 cursor-pointer items-center justify-center gap-0.5 overflow-hidden rounded-lg border bg-white px-2 transition-colors hover:bg-gray-100 dark:border-none dark:bg-[#313131] dark:hover:bg-[#404040]"
                   >
                     <Mail className="mr-1 h-3.5 w-3.5 fill-[#959595]" />
                     <div className="flex items-center justify-center gap-2.5 px-0.5">
@@ -756,10 +770,22 @@ export function ThreadDisplay() {
               </div>
             </div>
           </div>
+        ) : readError && !emailData ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6" role="alert">
+            <p className="text-muted-foreground text-sm">{m['mailRead.failed']()}</p>
+            <Button variant="outline" disabled={isFetching} onClick={() => void retryRead()}>
+              {m['mailRead.retry']()}
+            </Button>
+          </div>
         ) : !emailData || isLoading ? (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <ScrollArea className="h-full flex-1" type="auto">
               <div className="pb-4">
+                {failureCount > 0 && (
+                  <p role="status" className="text-muted-foreground px-4 py-2 text-sm">
+                    {m['mailRead.retrying']()}
+                  </p>
+                )}
                 <MailDisplaySkeleton isFullscreen={isFullscreen} />
               </div>
             </ScrollArea>
@@ -802,7 +828,7 @@ export function ThreadDisplay() {
                     setMode('replyAll');
                     setActiveReplyId(emailData?.latest?.id ?? '');
                   }}
-                  className="inline-flex h-7 items-center justify-center gap-1 overflow-hidden rounded-lg border bg-white px-1.5 dark:border-none dark:bg-[#313131] hover:bg-gray-100 dark:hover:bg-[#404040] transition-colors cursor-pointer"
+                  className="inline-flex h-7 cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-lg border bg-white px-1.5 transition-colors hover:bg-gray-100 dark:border-none dark:bg-[#313131] dark:hover:bg-[#404040]"
                 >
                   <Reply className="fill-muted-foreground dark:fill-[#9B9B9B]" />
                   <div className="flex items-center justify-center gap-2.5 pl-0.5 pr-1">
@@ -811,13 +837,14 @@ export function ThreadDisplay() {
                     </div>
                   </div>
                 </button>
+                {id && <MoveCategory key={id} threadId={id} />}
                 <NotesPanel threadId={id} />
                 <TooltipProvider delayDuration={0}>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         onClick={handleToggleStar}
-                        className="inline-flex h-7 w-7 items-center justify-center gap-1 overflow-hidden rounded-lg bg-white dark:bg-[#313131] hover:bg-gray-100 dark:hover:bg-[#404040] transition-colors cursor-pointer"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-lg bg-white transition-colors hover:bg-gray-100 dark:bg-[#313131] dark:hover:bg-[#404040]"
                       >
                         <Star
                           className={cn(
@@ -842,7 +869,7 @@ export function ThreadDisplay() {
                     <TooltipTrigger asChild>
                       <button
                         onClick={() => moveThreadTo('archive')}
-                        className="inline-flex h-7 w-7 items-center justify-center gap-1 overflow-hidden rounded-lg bg-white dark:bg-[#313131] hover:bg-gray-100 dark:hover:bg-[#404040] transition-colors cursor-pointer"
+                        className="inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-lg bg-white transition-colors hover:bg-gray-100 dark:bg-[#313131] dark:hover:bg-[#404040]"
                       >
                         <Archive className="fill-iconLight dark:fill-iconDark" />
                       </button>
@@ -859,7 +886,7 @@ export function ThreadDisplay() {
                       <TooltipTrigger asChild>
                         <button
                           onClick={() => moveThreadTo('bin')}
-                          className="inline-flex h-7 w-7 items-center justify-center gap-1 overflow-hidden rounded-lg border border-[#FCCDD5] bg-[#FDE4E9] hover:bg-[#fccdd5]/70 dark:border-[#6E2532] dark:bg-[#411D23] dark:hover:bg-[#6E2532]/70 cursor-pointer transition-colors"
+                          className="inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-lg border border-[#FCCDD5] bg-[#FDE4E9] transition-colors hover:bg-[#fccdd5]/70 dark:border-[#6E2532] dark:bg-[#411D23] dark:hover:bg-[#6E2532]/70"
                         >
                           <Trash className="fill-[#F43F5E]" />
                         </button>
@@ -873,7 +900,12 @@ export function ThreadDisplay() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="Thread actions" aria-haspopup="menu" className="inline-flex h-7 w-7 items-center justify-center gap-1 overflow-hidden rounded-lg bg-white cursor-pointer focus:outline-hidden focus:ring-0 dark:bg-[#313131] transition-colors">
+                    <button
+                      type="button"
+                      aria-label="Thread actions"
+                      aria-haspopup="menu"
+                      className="focus:outline-hidden inline-flex h-7 w-7 cursor-pointer items-center justify-center gap-1 overflow-hidden rounded-lg bg-white transition-colors focus:ring-0 dark:bg-[#313131]"
+                    >
                       <ThreeDots className="fill-iconLight dark:fill-iconDark" />
                     </button>
                   </DropdownMenuTrigger>
@@ -917,7 +949,7 @@ export function ThreadDisplay() {
                       </>
                     )}
                     {!isImportant && (
-                      <DropdownMenuItem onClick={handleToggleImportant}>
+                      <DropdownMenuItem onClick={handleMarkImportant} disabled={isMarkingImportant}>
                         <Lightning className="fill-iconLight dark:fill-iconDark mr-2" />
                         {m['common.mail.markAsImportant']()}
                       </DropdownMenuItem>

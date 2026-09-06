@@ -40,6 +40,7 @@ export default [
         index('(routes)/settings/page.tsx'),
         route('/appearance', '(routes)/settings/appearance/page.tsx'),
         route('/connections', '(routes)/settings/connections/page.tsx'),
+        route('/llm', '(routes)/settings/llm/page.tsx'),
         route('/danger-zone', '(routes)/settings/danger-zone/page.tsx'),
         route('/general', '(routes)/settings/general/page.tsx'),
         route('/labels', '(routes)/settings/labels/page.tsx'),

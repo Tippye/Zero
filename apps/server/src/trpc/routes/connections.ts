@@ -58,7 +58,14 @@ export const connectionsRouter = router({
     }),
   getDefault: publicProcedure.query(async ({ ctx }) => {
     if (!ctx.sessionUser) return null;
-    const connection = await getActiveConnection();
+    // Reading settings or the account menu must also work before an OAuth mailbox exists.
+    const db = await getZeroDB(ctx.sessionUser.id);
+    const user = await db.findUser();
+    const selected = user?.defaultConnectionId
+      ? await db.findUserConnection(user.defaultConnectionId)
+      : null;
+    const connection = selected || await db.findFirstConnection();
+    if (!connection) return null;
     return {
       id: connection.id,
       email: connection.email,

@@ -63,8 +63,8 @@ export interface MailManager {
     }[]
   >;
   get(id: string): Promise<IGetThreadResponse>;
-  create(data: IOutgoingMessage): Promise<{ id?: string | null }>;
-  sendDraft(id: string, data: IOutgoingMessage): Promise<void>;
+  create(data: IOutgoingMessage): Promise<{ id?: string | null; threadId?: string | null }>;
+  sendDraft(id: string, data: IOutgoingMessage): Promise<void | { id?: string | null; threadId?: string | null }>;
   createDraft(
     data: CreateDraftData,
   ): Promise<{ id?: string | null; success?: boolean; error?: string }>;

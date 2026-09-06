@@ -1,3 +1,4 @@
+import { useComposerMailbox } from '@/hooks/use-mailboxes';
 import { useUndoSend, type EmailData, deserializeFiles } from '@/hooks/use-undo-send';
 import { useActiveConnection } from '@/hooks/use-connections';
 import { Dialog, DialogClose } from '@/components/ui/dialog';
@@ -5,7 +6,7 @@ import { useEmailAliases } from '@/hooks/use-email-aliases';
 import { cleanEmailAddresses } from '@/lib/email-utils';
 
 import { useTRPC } from '@/providers/query-provider';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '@/hooks/use-settings';
 import { EmailComposer } from './email-composer';
 import { useSession } from '@/lib/auth-client';
@@ -47,6 +48,7 @@ export function CreateEmail({
   draftId?: string | null;
 }) {
   const { data: session } = useSession();
+  const { account: composerAccount } = useComposerMailbox();
 
   const { data: aliases } = useEmailAliases();
   const [draftId, setDraftId] = useQueryState('draftId');
@@ -57,12 +59,13 @@ export function CreateEmail({
   } = useDraft(draftId ?? propDraftId ?? null);
 
   const [, setIsDraftFailed] = useState(false);
+  const queryClient = useQueryClient();
   const trpc = useTRPC();
   const { mutateAsync: sendEmail } = useMutation(trpc.mail.send.mutationOptions());
   const [isComposeOpen, setIsComposeOpen] = useQueryState('isComposeOpen');
   const [, setThreadId] = useQueryState('threadId');
   const [, setActiveReplyId] = useQueryState('activeReplyId');
-  const { data: activeConnection } = useActiveConnection();
+  const { account: activeConnection } = useComposerMailbox();
   const { data: settings, isLoading: settingsLoading } = useSettings();
   const { handleUndoSend } = useUndoSend();
   // If there was an error loading the draft, set the failed state
@@ -76,8 +79,8 @@ export function CreateEmail({
 
   const { data: activeAccount } = useActiveConnection();
 
-  const userEmail = activeAccount?.email || activeConnection?.email || session?.user?.email || '';
-  const userName = activeAccount?.name || activeConnection?.name || session?.user?.name || '';
+  const userEmail = composerAccount?.email || activeAccount?.email || activeConnection?.email || session?.user?.email || '';
+  const userName = composerAccount?.name || activeAccount?.name || activeConnection?.name || session?.user?.name || '';
 
   const handleSendEmail = async (data: {
     to: string[];
@@ -88,6 +91,8 @@ export function CreateEmail({
     attachments: File[];
     fromEmail?: string;
     scheduleAt?: string;
+    draftId?: string;
+    accountId?: string;
   }) => {
     const fromEmail = data.fromEmail || aliases?.[0]?.email || userEmail;
 
@@ -103,10 +108,19 @@ export function CreateEmail({
       message: data.message + zeroSignature,
       attachments: await serializeFiles(data.attachments),
       fromEmail: userName.trim() ? `${userName.replace(/[<>]/g, '')} <${fromEmail}>` : fromEmail,
-      draftId: draftId ?? undefined,
+      draftId: data.draftId,
+      accountId: data.accountId || composerAccount?.id,
       scheduleAt: data.scheduleAt,
     });
 
+    if (!result.success) throw new Error('error' in result ? result.error : 'Send was not accepted');
+
+    void Promise.allSettled([
+      queryClient.invalidateQueries({ queryKey: trpc.mail.listThreads.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.drafts.list.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.drafts.get.queryKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.mail.get.queryKey() }),
+    ]);
     setDraftId(null);
     clearUndoData();
 

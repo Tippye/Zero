@@ -1,3 +1,5 @@
+import { useComposerMailbox } from '@/hooks/use-mailboxes';
+import { useEnsureLlm } from '@/hooks/use-llm';
 import {
   Dialog,
   DialogContent,
@@ -28,7 +30,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useTRPC } from '@/providers/query-provider';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSettings } from '@/hooks/use-settings';
 
 import { cn, formatFileSize } from '@/lib/utils';
@@ -42,6 +44,7 @@ import { useQueryState } from 'nuqs';
 import { Toolbar } from './toolbar';
 import pluralize from 'pluralize';
 import { toast } from 'sonner';
+import { m } from '@/paraglide/messages';
 import { z } from 'zod';
 
 import { RecipientAutosuggest } from '@/components/ui/recipient-autosuggest';
@@ -77,6 +80,8 @@ interface EmailComposerProps {
     attachments: File[];
     fromEmail?: string;
     scheduleAt?: string;
+    draftId?: string;
+    accountId?: string;
   }) => Promise<void>;
   onClose?: () => void;
   className?: string;
@@ -114,18 +119,25 @@ export function EmailComposer({
   editorClassName,
 }: EmailComposerProps) {
   const { data: aliases } = useEmailAliases();
+  const { account: senderAccount, accounts: senderAccounts, setSenderId } = useComposerMailbox();
   const { data: settings } = useSettings();
   const [showCc, setShowCc] = useState(initialCc.length > 0);
   const [showBcc, setShowBcc] = useState(initialBcc.length > 0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const pendingDraftSave = useRef<Promise<string | null | false> | null>(null);
+  const sendInFlight = useRef(false);
+  const editVersion = useRef(0);
+  const lastSavedSnapshot = useRef<string | null>(null);
+  const [draftSaveFailed, setDraftSaveFailed] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [messageLength, setMessageLength] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [threadId] = useQueryState('threadId');
   const [isComposeOpen, setIsComposeOpen] = useQueryState('isComposeOpen');
   const { data: emailData } = useThread(threadId ?? null);
-  const [draftId, setDraftId] = useQueryState('draftId');
+  const [draftId] = useQueryState('draftId');
+  const currentDraftId = useRef<string | null>(draftId);
   const [aiGeneratedMessage, setAiGeneratedMessage] = useState<string | null>(null);
   const [aiIsLoading, setAiIsLoading] = useState(false);
   const [isGeneratingSubject, setIsGeneratingSubject] = useState(false);
@@ -162,7 +174,7 @@ export function EmailComposer({
           compressed: compressedFiles.length,
         });
         setValue('attachments', filesToProcess, { shouldDirty: true });
-        setHasUnsavedChanges(true);
+        markDirty();
         if (showToast) {
           toast.error('Image compression failed, using original files');
         }
@@ -170,7 +182,7 @@ export function EmailComposer({
       }
 
       setValue('attachments', compressedFiles, { shouldDirty: true });
-      setHasUnsavedChanges(true);
+      markDirty();
 
       if (showToast && quality !== 'original') {
         let totalOriginalSize = 0;
@@ -200,7 +212,7 @@ export function EmailComposer({
     } catch (error) {
       console.error('Error compressing images:', error);
       setValue('attachments', filesToProcess, { shouldDirty: true });
-      setHasUnsavedChanges(true);
+      markDirty();
       if (showToast) {
         toast.error('Image compression failed, using original files');
       }
@@ -215,7 +227,15 @@ export function EmailComposer({
     'see the files',
   ];
 
+  const markDirty = () => {
+    editVersion.current += 1;
+    setHasUnsavedChanges(true);
+    setDraftSaveFailed(false);
+  };
+  const queryClient = useQueryClient();
   const trpc = useTRPC();
+  const ensureLlm = useEnsureLlm();
+  const { mutateAsync: imapGenerate } = useMutation(trpc.imap.generate.mutationOptions());
   const { mutateAsync: aiCompose } = useMutation(trpc.ai.compose.mutationOptions());
   const { mutateAsync: createDraft } = useMutation(trpc.drafts.create.mutationOptions());
   const { mutateAsync: generateEmailSubject } = useMutation(
@@ -259,14 +279,14 @@ export function EmailComposer({
     const newOriginals = originalAttachments.filter((_, i) => i !== index);
     setOriginalAttachments(newOriginals);
     await processAndSetAttachments(newOriginals, imageQuality);
-    setHasUnsavedChanges(true);
+    markDirty();
   };
 
   const editor = useComposeEditor({
     initialValue: initialMessage,
     isReadOnly: isLoading,
     onLengthChange: (length) => {
-      setHasUnsavedChanges(true);
+      markDirty();
       setMessageLength(length);
     },
     onModEnter: () => {
@@ -320,7 +340,7 @@ export function EmailComposer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         const hasContent = editor?.getText()?.trim().length > 0;
-        if (hasContent && !draftId) {
+        if (hasContent && !currentDraftId.current) {
           e.preventDefault();
           e.stopPropagation();
           setShowLeaveConfirmation(true);
@@ -333,11 +353,12 @@ export function EmailComposer({
   }, [editor, draftId]);
 
   const proceedWithSend = async () => {
+    if (sendInFlight.current || isLoading) return;
+    sendInFlight.current = true;
     try {
-      if (isLoading || isSavingDraft) return;
-
       const values = getValues();
 
+      if (!senderAccount) { toast.error(m['mailboxes.chooseSender']()); return; }
       // Validate recipient field
       if (!values.to || values.to.length === 0) {
         toast.error('Recipient is required');
@@ -351,8 +372,11 @@ export function EmailComposer({
 
       setIsLoading(true);
       setAiGeneratedMessage(null);
-      // Save draft before sending, we want to send drafts instead of sending new emails
-      if (hasUnsavedChanges) await saveDraft();
+      // Finish an autosave before taking the final snapshot. Use the returned ID directly;
+      // URL/React state may still contain the ID from the previous render.
+      if (pendingDraftSave.current && (await pendingDraftSave.current) === false) return;
+      const savedDraftId = await saveDraft(true);
+      if (savedDraftId === false) return;
 
       await onSendEmail({
         to: values.to,
@@ -363,15 +387,20 @@ export function EmailComposer({
         attachments: values.attachments || [],
         fromEmail: values.fromEmail,
         scheduleAt,
+        draftId: savedDraftId || undefined,
+        accountId: senderAccount?.id,
       });
+      currentDraftId.current = null;
+      lastSavedSnapshot.current = null;
       setHasUnsavedChanges(false);
-      editor.commands.clearContent(true);
+      editor.commands.clearContent(false);
       form.reset();
       setIsComposeOpen(null);
     } catch (error) {
       console.error('Error sending email:', error);
-      toast.error('Failed to send email');
+      toast.error(m['sendUi.sendFailed']());
     } finally {
+      sendInFlight.current = false;
       setIsLoading(false);
     }
   };
@@ -416,12 +445,13 @@ export function EmailComposer({
   }, [emailData]);
 
   const handleAiGenerate = async () => {
+    if (!(await ensureLlm())) return;
     try {
       setIsLoading(true);
       setAiIsLoading(true);
       const values = getValues();
 
-      const result = await aiCompose({
+      const result = senderAccount?.providerId === 'imap' ? { newBody: (await imapGenerate({ accountId: senderAccount.id, task: 'compose', consent: true, instructions: JSON.stringify({ request: editor.getText(), subject: values.subject, thread: threadContent }).slice(0, 8000) })).text } : await aiCompose({
         prompt: editor.getText(),
         emailSubject: values.subject,
         to: values.to,
@@ -440,48 +470,56 @@ export function EmailComposer({
     }
   };
 
-  const saveDraft = async () => {
+  const saveDraft = async (force = false): Promise<string | null | false> => {
+    if (pendingDraftSave.current) return pendingDraftSave.current;
+    if (!force && !hasUnsavedChanges) return currentDraftId.current;
+    if (aiGeneratedMessage || aiIsLoading || isGeneratingSubject) return false;
     const values = getValues();
-
-    if (!hasUnsavedChanges) return;
     const messageText = editor.getText();
-
-    if (messageText.trim() === initialMessage.trim()) return;
-    if (editor.getHTML() === initialMessage.trim()) return;
-    if (!values.to.length || !values.subject.length || !messageText.length) return;
-    if (aiGeneratedMessage || aiIsLoading || isGeneratingSubject) return;
-
-    try {
-      setIsSavingDraft(true);
-      const draftData = {
-        to: values.to.join(', '),
-        cc: values.cc?.join(', '),
-        bcc: values.bcc?.join(', '),
-        subject: values.subject,
-        message: editor.getHTML(),
-        attachments: await serializeFiles(values.attachments ?? []),
-        id: draftId,
-        threadId: threadId ? threadId : null,
-        fromEmail: values.fromEmail ? values.fromEmail : null,
-      };
-
-      const response = await createDraft(draftData);
-
-      if (response?.id && response.id !== draftId) {
-        setDraftId(response.id);
+    if (!values.to.length && !values.subject.trim() && !messageText.trim() && !values.attachments?.length) return currentDraftId.current;
+    const version = editVersion.current;
+    // Capture every field before awaiting attachment serialization.
+    const draftData = {
+      accountId: senderAccount?.id,
+      to: values.to.join(', '), cc: showCc ? values.cc?.join(', ') : undefined,
+      bcc: showBcc ? values.bcc?.join(', ') : undefined,
+      subject: values.subject, message: editor.getHTML(),
+      id: currentDraftId.current, threadId: threadId || null,
+      fromEmail: values.fromEmail || null,
+    };
+    setIsSavingDraft(true);
+    setDraftSaveFailed(false);
+    const task = (async (): Promise<string | null | false> => {
+      try {
+        const attachments = await serializeFiles(values.attachments ?? []);
+        const snapshot = JSON.stringify({ ...draftData, id: null, attachments });
+        if (snapshot !== lastSavedSnapshot.current) {
+          const response = await createDraft({ ...draftData, attachments });
+          if (!response?.id) throw new Error('Draft save did not return an ID');
+          currentDraftId.current = response.id;
+          lastSavedSnapshot.current = snapshot;
+          // Keep the active composer mounted: publishing a new draftId in the URL
+          // makes CreateEmail load the draft and replace the editor mid-save.
+          void queryClient.invalidateQueries({ queryKey: trpc.mail.listThreads.infiniteQueryKey({ folder: 'draft' }) });
+          void queryClient.invalidateQueries({ queryKey: trpc.drafts.list.queryKey() });
+        }
+        setHasUnsavedChanges(editVersion.current !== version);
+        return currentDraftId.current;
+      } catch {
+        setDraftSaveFailed(true);
+        setHasUnsavedChanges(true);
+        toast.error(m['sendUi.draftFailed']());
+        return false;
+      } finally {
+        setIsSavingDraft(false);
       }
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      toast.error('Failed to save draft');
-      setIsSavingDraft(false);
-      setHasUnsavedChanges(false);
-    } finally {
-      setIsSavingDraft(false);
-      setHasUnsavedChanges(false);
-    }
+    })();
+    pendingDraftSave.current = task;
+    try { return await task; } finally { pendingDraftSave.current = null; }
   };
 
   const handleGenerateSubject = async () => {
+    if (!(await ensureLlm())) return;
     try {
       setIsGeneratingSubject(true);
       const messageText = editor.getText().trim();
@@ -491,9 +529,9 @@ export function EmailComposer({
         return;
       }
 
-      const { subject } = await generateEmailSubject({ message: messageText });
+      const { subject } = senderAccount?.providerId === 'imap' ? { subject: (await imapGenerate({ task: 'compose', consent: true, instructions: ('Generate only one short email subject, no explanation, for this body: ' + messageText).slice(0, 8000) })).text } : await generateEmailSubject({ message: messageText });
       setValue('subject', subject);
-      setHasUnsavedChanges(true);
+      markDirty();
     } catch (error) {
       console.error('Error generating subject:', error);
       toast.error('Failed to generate subject');
@@ -534,15 +572,14 @@ export function EmailComposer({
   }, [editor, showLeaveConfirmation]);
 
   useEffect(() => {
-    if (!hasUnsavedChanges) return;
+    if (!hasUnsavedChanges || isSavingDraft || isLoading || draftSaveFailed) return;
 
     const autoSaveTimer = setTimeout(() => {
-      console.log('timeout set');
-      saveDraft();
+      void saveDraft();
     }, 3000);
 
     return () => clearTimeout(autoSaveTimer);
-  }, [hasUnsavedChanges, saveDraft]);
+  }, [hasUnsavedChanges, isSavingDraft, isLoading, draftSaveFailed, saveDraft]);
 
   useEffect(() => {
     const handlePasteFiles = (event: ClipboardEvent) => {
@@ -576,17 +613,26 @@ export function EmailComposer({
   // });
 
 
+  useEffect(() => { if (senderAccount?.id) void setSenderId(senderAccount.id); }, [senderAccount?.id, setSenderId]);
+
   // keep fromEmail in sync when settings or aliases load afterwards
   useEffect(() => {
     const preferred =
-      settings?.settings?.defaultEmailAlias ??
-      aliases?.find((a) => a.primary)?.email ??
+      aliases?.find(a => a.email === settings?.settings?.defaultEmailAlias)?.email ||
+      aliases?.find((a) => a.primary)?.email ||
       aliases?.[0]?.email;
 
     if (preferred && getValues('fromEmail') !== preferred) {
       setValue('fromEmail', preferred, { shouldDirty: false });
     }
   }, [settings?.settings?.defaultEmailAlias, aliases, getValues, setValue]);
+
+  useEffect(() => {
+    const subscription = watch((_values, info) => {
+      if (info.name && ['to', 'cc', 'bcc'].includes(info.name)) markDirty();
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
 
   const handleQualityChange = async (newQuality: ImageQuality) => {
     setImageQuality(newQuality);
@@ -619,6 +665,15 @@ export function EmailComposer({
       )}
     >
       <div className="no-scrollbar dark:bg-panelDark flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl">
+        <div className="flex items-center gap-3 border-b p-3 text-sm">
+          <label htmlFor="sender-mailbox">{m['mailboxes.sender']()}</label>
+          <select id="sender-mailbox" className="min-w-0 flex-1 rounded border bg-background p-1" value={senderAccount?.id || ''}
+            disabled={isLoading || isSavingDraft || !!currentDraftId.current || !!threadId}
+            onChange={event => { void setSenderId(event.target.value); markDirty(); }}>
+            {!senderAccount && <option value="">{m['mailboxes.chooseSender']()}</option>}
+            {senderAccounts.filter(a => a.connected).map(a => <option key={a.id} value={a.id}>{a.email}</option>)}
+          </select>
+        </div>
         {/* To, Cc, Bcc */}
         <div className="shrink-0 overflow-visible border-b border-[#E7E7E7] pb-2 dark:border-[#252525]">
           <div className="flex justify-between px-3 pt-3">
@@ -636,14 +691,16 @@ export function EmailComposer({
               <button
                 tabIndex={-1}
                 className="flex h-full items-center gap-2 text-sm font-medium text-[#8C8C8C] hover:text-[#A8A8A8] hover:bg-gray-50 dark:hover:bg-[#404040] transition-colors cursor-pointer rounded-sm px-1 py-0.5"
-                onClick={() => setShowCc(!showCc)}
+                disabled={isLoading}
+                onClick={() => { setShowCc(!showCc); markDirty(); }}
               >
                 <span>Cc</span>
               </button>
               <button
                 tabIndex={-1}
                 className="flex h-full items-center gap-2 text-sm font-medium text-[#8C8C8C] hover:text-[#A8A8A8] hover:bg-gray-50 dark:hover:bg-[#404040] transition-colors cursor-pointer rounded-sm px-1 py-0.5"
-                onClick={() => setShowBcc(!showBcc)}
+                disabled={isLoading}
+                onClick={() => { setShowBcc(!showBcc); markDirty(); }}
               >
                 <span>Bcc</span>
               </button>
@@ -688,6 +745,9 @@ export function EmailComposer({
           </div>
         </div>
 
+        {draftSaveFailed && <div role="alert" className="flex items-center justify-between gap-2 border-b p-3 text-sm">
+          <span>{m['sendUi.draftFailed']()}</span><Button size="sm" variant="outline" disabled={isLoading || isSavingDraft} onClick={() => void saveDraft(true)}>{m['pages.settings.retry']()}</Button>
+        </div>}
         {/* Subject */}
         {!activeReplyId ? (
           <div className="flex items-center gap-2 border-b p-3">
@@ -695,11 +755,12 @@ export function EmailComposer({
             <input
               className="h-4 w-full bg-transparent text-sm font-normal leading-normal text-black placeholder:text-[#797979] focus:outline-none dark:text-white/90"
               placeholder="Re: Design review feedback"
+              disabled={isLoading}
               value={subjectInput}
               onChange={(e) => {
                 const value = replaceEmojiShortcodes(e.target.value);
                 setValue('subject', value);
-                setHasUnsavedChanges(true);
+                markDirty();
               }}
             />
             <button
@@ -725,10 +786,11 @@ export function EmailComposer({
           <div className="flex items-center gap-2 border-b p-3">
             <p className="text-sm font-medium text-[#8C8C8C]">From:</p>
             <Select
+              disabled={isLoading}
               value={fromEmail || ''}
               onValueChange={(value) => {
                 setValue('fromEmail', value);
-                setHasUnsavedChanges(true);
+                markDirty();
               }}
             >
               <SelectTrigger className="h-6 flex-1 border-0 bg-transparent p-0 text-sm font-normal text-black placeholder:text-[#797979] focus:outline-none focus:ring-0 dark:text-white/90">
@@ -775,7 +837,7 @@ export function EmailComposer({
             <Button size={'xs'} onClick={handleSend} disabled={isLoading || settingsLoading || !isScheduleValid}>
               <div className="flex items-center justify-center">
                 <div className="text-center text-sm leading-none text-white dark:text-black">
-                  <span>Send </span>
+                  <span>{sendInFlight.current ? m['sendUi.sending']() : m['common.replyCompose.send']()}</span>
                 </div>
               </div>
               <div className="flex h-5 items-center justify-center gap-1 rounded-sm bg-white/10 px-1 dark:bg-black/10">
@@ -783,12 +845,12 @@ export function EmailComposer({
                 <CurvedArrow className="mt-1.5 h-4 w-4 fill-white dark:fill-black" />
               </div>
             </Button>
-            <ScheduleSendPicker
+            {senderAccount?.providerId !== 'imap' && <ScheduleSendPicker
               value={scheduleAt}
               onChange={handleScheduleChange}
               onValidityChange={handleScheduleValidityChange}
-            />
-            <Button variant={'secondary'} size={'xs'} onClick={() => fileInputRef.current?.click()} className="bg-background border hover:bg-gray-50 dark:hover:bg-[#404040] transition-colors cursor-pointer">
+            />}
+            <Button variant={'secondary'} size={'xs'} disabled={isLoading} onClick={() => fileInputRef.current?.click()} className="bg-background border hover:bg-gray-50 dark:hover:bg-[#404040] transition-colors cursor-pointer">
               <Plus className="h-3 w-3 fill-[#9A9A9A]" />
               <span className="hidden px-0.5 text-sm md:block">Add</span>
             </Button>
@@ -804,6 +866,7 @@ export function EmailComposer({
             <Input
               type="file"
               id="attachment-input"
+              disabled={isLoading}
               className="hidden"
               onChange={async (event) => {
                 const fileList = event.target.files;
@@ -919,6 +982,7 @@ export function EmailComposer({
                                 }
                               }}
                               className="focus-visible:ring-ring ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-transparent hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 cursor-pointer"
+                              disabled={isLoading}
                               aria-label={`Remove ${file.name}`}
                             >
                               <XIcon className="text-muted-foreground h-3.5 w-3.5 hover:text-black dark:text-[#9B9B9B] dark:hover:text-white" />
