@@ -1,7 +1,13 @@
 import { LoginClient } from './login-client';
-import { useLoaderData } from 'react-router';
+import { useLoaderData, redirect } from 'react-router';
+import { authClient } from '@/lib/auth-client';
 
 export async function clientLoader() {
+  const session = await authClient.getSession();
+  if (session.data?.user && !session.data.user.isAnonymous) {
+    const next = new URLSearchParams(window.location.search).get('next');
+    return redirect(next?.startsWith('/') && !next.startsWith('//') && !next.includes('\\') && !next.startsWith('/login') ? next : '/mail/inbox');
+  }
   const isProd = !import.meta.env.DEV;
 
   const response = await fetch(import.meta.env.VITE_PUBLIC_BACKEND_URL + '/api/public/providers');

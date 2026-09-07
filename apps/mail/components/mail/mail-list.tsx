@@ -346,7 +346,7 @@ const Thread = memo(
             </div>
 
             <div
-              className={`relative flex w-full items-center justify-between gap-4 px-4 ${displayUnread ? '' : 'opacity-60'}`}
+              className="relative flex w-full items-center justify-between gap-4 px-4"
             >
               <div>
                 {isMailBulkSelected ? (
@@ -469,7 +469,7 @@ const Thread = memo(
                     {latestMessage.receivedOn ? (
                       <p
                         className={cn(
-                          'text-muted-foreground text-nowrap text-xs font-normal opacity-70 transition-opacity group-hover:opacity-100 dark:text-[#8C8C8C]',
+                          'text-muted-foreground text-nowrap text-xs font-normal opacity-70 transition-opacity group-hover:opacity-100 dark:text-[#8C8C8C] dark:opacity-100',
                           isMailSelected && 'opacity-100',
                         )}
                       >
@@ -684,7 +684,7 @@ const Draft = memo(({ message, index }: { message: { id: string; accountEmail?: 
                 {draft.rawMessage?.internalDate && (
                   <p
                     className={cn(
-                      'text-muted-foreground text-nowrap text-xs font-normal opacity-70 transition-opacity group-hover:opacity-100 dark:text-[#8C8C8C]',
+                      'text-muted-foreground text-nowrap text-xs font-normal opacity-70 transition-opacity group-hover:opacity-100 dark:text-[#8C8C8C] dark:opacity-100',
                     )}
                   >
                     {formatDate(Number(draft.rawMessage?.internalDate))}

@@ -175,12 +175,20 @@ export function applyEmailPreferences(
     });
   }
 
-  const html = $.html();
+  // Email media queries must follow the app's choice, which may differ from the OS.
+  $('style').each((_, element) => {
+    const style = $(element);
+    style.text(style.text().replace(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi,
+      (_, preferred) => preferred.toLowerCase() === theme ? '(min-width: 0px)' : '(max-width: 0px)'));
+  });
+  $('html, body').attr('data-theme', theme).attr('data-color-mode', theme);
+  $('html').toggleClass('dark', isDarkTheme).attr('style', `${$('html').attr('style') || ''}; color-scheme: ${theme};`);
+  if (isDarkTheme) $('body').attr('data-ogsc', '').attr('data-ogsb', '');
 
   // Apply theme-specific styles
   const themeStyles = `
     <style type="text/css">
-      :host {
+      :host, html {
         display: block;
         line-height: 1.5;
         background-color: ${isDarkTheme ? '#1A1A1A' : '#ffffff'};
@@ -244,7 +252,9 @@ export function applyEmailPreferences(
     </style>
   `;
 
-  const finalHtml = `${themeStyles}${html}`;
+  // Keep a full document so body attributes survive parsing in every client.
+  $('head').prepend(themeStyles);
+  const finalHtml = $.html();
 
   return {
     processedHtml: finalHtml,

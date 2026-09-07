@@ -58,7 +58,8 @@ export function NavMain({ items }: NavMainProps) {
   const searchParams = new URLSearchParams(location.search);
 
   const trpc = useTRPC();
-  const intercomEnabled = import.meta.env.VITE_PUBLIC_INTERCOM_ENABLED !== 'false';
+  const intercomEnabled = import.meta.env.VITE_PUBLIC_SELF_HOSTED !== 'true' &&
+    import.meta.env.VITE_PUBLIC_INTERCOM_ENABLED !== 'false';
   const { data: intercomToken } = useQuery(
     trpc.user.getIntercomToken.queryOptions(undefined, { enabled: intercomEnabled }),
   );

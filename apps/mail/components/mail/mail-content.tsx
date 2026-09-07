@@ -7,6 +7,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { m } from '@/paraglide/messages';
 import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
+import { applyMailTheme } from '@/lib/mail-theme';
 import { toast } from 'sonner';
 
 interface MailContentProps {
@@ -77,7 +78,7 @@ export function MailContent({ id, html, senderEmail, imagePreferenceId = id }: M
     refetch: retryContent,
   } = useQuery({
     queryKey: [
-      'email-content-v2',
+      'email-content-v3',
       id,
       html,
       isTrustedSender || temporaryImagesEnabled,
@@ -128,7 +129,8 @@ export function MailContent({ id, html, senderEmail, imagePreferenceId = id }: M
     shadowRootRef.current.replaceChildren(
       document.importNode(documentContent.documentElement, true),
     );
-  }, [processedData]);
+    applyMailTheme(shadowRootRef.current, resolvedTheme);
+  }, [processedData, resolvedTheme]);
 
   const handleImageError = useCallback(
     (e: Event) => {

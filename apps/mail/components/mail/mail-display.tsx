@@ -1228,13 +1228,7 @@ const MailDisplay = ({ emailData, index, totalEmails, demo, threadAttachments }:
                   {emailData?.tags?.length ? (
                     <MailDisplayLabels labels={emailData?.tags.map((t) => t.name) || []} />
                   ) : null}
-                  {emailData?.tags?.length ? (
-                    <div className="bg-iconLight dark:bg-iconDark/20 relative h-3 w-0.5 rounded-full" />
-                  ) : null}
                   <RenderLabels labels={threadLabels} />
-                  {threadLabels.length ? (
-                    <div className="bg-iconLight dark:bg-iconDark/20 relative h-3 w-0.5 rounded-full" />
-                  ) : null}
                   <div className="text-muted-foreground flex items-center gap-2 text-sm dark:text-[#8C8C8C]">
                     {(() => {
                       if (people.length <= 2) {
