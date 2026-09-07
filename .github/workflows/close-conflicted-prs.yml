@@ -11,7 +11,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Close PRs with conflicts older than 3 days
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prs = await github.rest.pulls.list({
@@ -33,10 +33,11 @@ jobs:
               }
               
               if (details.data.mergeable === false) {
-                const timeline = await github.rest.issues.listEventsForTimeline({ owner: context.repo.owner, repo: context.repo.repo, issue_number: pr.number, per_page: 100 });
+                const timeline = await github.rest.issues.listEventsForTimeline({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: pr.number
+                  issue_number: pr.number,
+                  per_page: 100
                 });
 
                 let conflictStartTime = new Date(pr.updated_at);
