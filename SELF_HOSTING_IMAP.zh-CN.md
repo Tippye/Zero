@@ -171,35 +171,25 @@ Base URL 为服务商提供的 API 前缀，例如 `https://llm.example.com/v1`�
 
 本机服务可使用 `http://localhost:端口/v1`，需从 Zero 后端可达。无鉴权兼容服务填写其接受的占位 Key。保存的 Key 加密写入 PostgreSQL，需连同 `BETTER_AUTH_SECRET` 备份。完整说明见 `SELF_HOSTING_LOCAL.zh-CN.md` 的「AI 配置」。
 
-## 8. iOS / Android 构建脚手架
+## 8. Android 客户端与 Apple 原生工程
 
-**此部分只完成静态资源打包配置。原生 OAuth / 安全 Token 存储 / 深度链接 / CORS / 推送 / 附件分享需要继续实现和真机验收。不能把能打开 WebView 当成移动邮箱已经完成。**
+Android 已新增独立的原生 Java/Gradle 客户端，连接 Zero Compose 服务器，详见[安卓使用与构建说明](native/mobile/README.zh-CN.md)及[验收记录](native/mobile/VALIDATION.zh-CN.md)。Android 不再由 Capacitor 生成；请勿运行 `cap add android` 或 `cap sync android` 覆盖工程。
 
-Capacitor 8 的官方要求以文档为准：Node 22+；iOS 要在 macOS + Xcode 26+ 构建；Android 需要对应的 Android Studio 和 SDK。本环境没有运行这些工具，也没有生成 IPA/APK。
+Apple 原生开发使用 `native/apple/ZeroMail.xcodeproj`，包含 macOS、iOS/iPadOS 和 watchOS 目标、共享配对认证与 Keychain 模块。请按[Mac 迁移说明](native/apple/MIGRATION.zh-CN.md)继续 Xcode 编译、签名及设备验收。
+
+以下仅保留旧 Capacitor iOS 实验脚手架的操作记录，需要 macOS、Xcode 和相应的 Capacitor 环境：
 
 ```bash
-# 先在仓库根目录成功构建 Web。
 pnpm --filter @zero/mail build
-
 cd native/mobile
 npm install
 npm run prepare:web
-npm run add:ios       # 仅 macOS；首次创建一次
-npm run add:android   # 首次创建一次
+npm run add:ios
 npm run sync
-
 npm run open:ios
-# 或
-npm run open:android
 ```
 
-配置使用包内 `www` 资源，没有生产 `server.url`，不会把任意远程网页默认为拥有原生插件权限。资源脚本拒绝缺失构建产物，并在 React Router 生成 `__spa-fallback.html` 时选择正确的 SPA 入口。
-
-应用 ID 默认为 `com.tippye.zeromail`。平台工程生成后，再在 Xcode / Android Studio 设置你的签名、应用 ID、图标和发行配置；不要提交证书、私钥或 keystore。
-
-**发布前阻塞项：** 系统浏览器 OAuth + PKCE / 单次回传凭证、Universal Links / Android App Links、Keychain / Keystore、严格 CORS、通知授权与 APNs/FCM、附件与文件交互、退出后的缓存清理。没有为解决登录而放开 `*` CORS、跨站导航或在 WebView 中绕过认证限制。
-
-目前跨 iOS / Android / macOS / Windows 的实际可用入口应先采用 HTTPS Web 页面；不宣称已有四端原生客户端。
+旧 iOS 脚手架使用包内 `www` 资源，没有生产 `server.url`；没有实现原生认证、安全 Token 存储、推送、离线同步和发行验收。本节上方的早期能力表是历史记录，不代表新增 Android 客户端或 `native/apple` 原生工程的当前状态。
 
 ## 9. 测试与真实验收
 
@@ -211,7 +201,7 @@ npm test                     # 33 个依赖注入 / 本地 HTTP 测试
 npm run check                # Node 语法检查
 
 cd ../../native/mobile
-npm test                     # 4 个静态资源准备测试
+npm test                     # 静态资源准备及 Android 附件传输测试
 ```
 
 新增 TypeScript/TSX 做过语法转译检查，**不是依赖完整的 TypeScript 类型检查，也不是完整 Web 构建**。

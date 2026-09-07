@@ -1,4 +1,7 @@
 > **Windows 1.0.0 — first usable release:** [中文文档](README.zh-CN.md) · [Release notes (中文)](CHANGELOG.zh-CN.md) · [Docker Compose setup (中文)](deploy/README.zh-CN.md) · [Windows client (中文)](native/desktop/README.zh-CN.md) · [Validation record (中文)](deploy/VALIDATION.zh-CN.md).
+> **Android client:** [Setup and build](native/mobile/README.md) · [安卓中文说明](native/mobile/README.zh-CN.md). Connects to the self-hosted server; includes attachments, compose intents and optional periodic notifications.
+> **Apple native source:** [SwiftUI/Xcode project](native/apple/README.md) · [macOS migration guide (中文)](native/apple/MIGRATION.zh-CN.md). macOS, iOS/iPadOS and watchOS targets are included; Xcode builds and device validation are pending.
+> **Self-hosted authentication:** [Pairing guide (中文)](deploy/AUTHENTICATION.zh-CN.md). Devices sign in through approved pairing codes or QR codes; default username/password login has been removed.
 >
 > The Windows app connects to your Zero server. Mail UI and LLM changes require a server rebuild and page reload; desktop titlebar and integration changes require a new installer.
 

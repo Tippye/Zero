@@ -1,8 +1,8 @@
 # Zero Mail
 
-[English](README.md) · **中文** · [1.0.0 更新说明](CHANGELOG.zh-CN.md)
+[English](README.md) · **中文** · [更新说明](CHANGELOG.zh-CN.md)
 
-Zero Mail 是可自托管的邮件客户端，支持连接多个邮箱，通过网页和 Windows 应用使用同一工作区，并接入自选的 OpenAI 兼容 LLM 服务。
+Zero Mail 是可自托管的邮件客户端，支持连接多个邮箱，通过网页、Windows 和 Android 应用使用同一工作区，并接入自选的 OpenAI 兼容 LLM 服务。
 
 当前 Windows 客户端版本为 **1.0.0**，作为本分支的首个可用版本。客户端需要连接运行中的 Zero 服务端；普通邮件收发不要求配置 LLM。
 
@@ -12,7 +12,10 @@ Zero Mail 是可自托管的邮件客户端，支持连接多个邮箱，通过�
 | ------------------------------------------------ | -------------------------------------------------- |
 | [Docker Compose 部署](deploy/README.zh-CN.md)    | 首次启动、账号、局域网访问、HTTP/HTTPS、数据与升级 |
 | [Windows 客户端](native/desktop/README.zh-CN.md) | 安装、服务器连接、标题栏、托盘、默认邮件应用和打包 |
-| [1.0.0 更新说明](CHANGELOG.zh-CN.md)             | 当前版本功能、升级方法及已知限制                   |
+| [Android 客户端](native/mobile/README.zh-CN.md) | APK 安装、服务器登录、附件、分享链接、后台通知和构建 |
+| [Apple 原生工程迁移](native/apple/MIGRATION.zh-CN.md) | macOS、iOS、iPadOS、watchOS 的 Xcode 工程与验收步骤 |
+| [配对认证](deploy/AUTHENTICATION.zh-CN.md)       | 首台设备批准、配对码与二维码、会话撤销及密码版本迁移 |
+| [更新说明](CHANGELOG.zh-CN.md)                  | 当前版本功能、升级方法及已知限制                   |
 | [验收记录](deploy/VALIDATION.zh-CN.md)           | 已完成的检查、验证边界及安装包校验值               |
 | [本机开发环境](SELF_HOSTING_LOCAL.zh-CN.md)      | 原有本机开发部署，不等同于 Compose 账号模式        |
 | [早期 IMAP 集成记录](SELF_HOSTING_IMAP.zh-CN.md) | 历史阶段设计与实现说明，不作为当前版本功能清单     |
@@ -24,6 +27,9 @@ Zero Mail 是可自托管的邮件客户端，支持连接多个邮箱，通过�
 - 自选 LLM：添加、编辑、激活服务商配置，获取模型列表，或手动填写模型 ID。
 - 测试模型：已保存的配置和编辑表单均可测试，显示结果与耗时；测试使用简短消息，不读取邮件内容。
 - Windows 桌面体验：自定义标题栏、应用下拉菜单、原生窗口按钮、托盘、系统通知及邮件协议链接。
+- Android 手机端：原生服务器设置、邮件工作区、附件选择与保存、写信链接、文本分享和可选后台邮件检查。
+- Apple 原生源码：SwiftUI 与共享 Swift 模块，包含 macOS、iOS/iPadOS 和独立 watchOS 应用；待在 Mac 上完成 Xcode 编译和设备验收。
+- 配对登录：新设备显示配对码或二维码，由已登录设备或服务器管理员批准，无需默认用户名密码。
 - 中文界面：支持简体中文、繁体中文与英语等界面语言。
 
 邮箱供应商的认证、IMAP/SMTP 能力及限制仍由各服务商决定。具体功能与验收情况以对应文档为准。
@@ -36,14 +42,20 @@ Zero Mail 是可自托管的邮件客户端，支持连接多个邮箱，通过�
 node deploy/init.mjs http://localhost:8080
 ```
 
-编辑生成的 `deploy/.env`，设置 `ADMIN_EMAIL` 和至少 12 位的 `ADMIN_PASSWORD`，然后启动：
+初始化脚本会生成 `deploy/.env`。确认服务器地址后启动，无需设置用户名或登录密码：
 
 ```sh
 docker compose --env-file deploy/.env up -d --build
 docker compose --env-file deploy/.env ps
 ```
 
-浏览器打开 `http://localhost:8080`，使用上述账号登录。在“设置 → 连接”添加邮箱，在“设置 → LLM 服务商”按需配置 AI。
+浏览器打开 `http://localhost:8080`，生成配对码。首台设备需在服务器终端批准，将示例替换为页面显示的配对码：
+
+```sh
+docker compose --env-file deploy/.env exec api node pairing.mjs approve ABCD-EFGH
+```
+
+核对设备信息并确认后，页面自动登录。后续设备可由已登录设备扫码或在“设置 → 安全”输入配对码批准，详见[配对认证](deploy/AUTHENTICATION.zh-CN.md)。在“设置 → 连接”添加邮箱，在“设置 → LLM 服务商”按需配置 AI。
 
 初始化脚本不会覆盖现有配置。已有实例直接按[升级说明](deploy/README.zh-CN.md#数据和升级)操作；保留数据卷以及原有加密密钥。
 
@@ -58,7 +70,7 @@ docker compose --env-file deploy/.env ps
 
 产物是本机构建文件，不随 Git 源码提交；从源码生成安装包请参阅[构建步骤](native/desktop/README.zh-CN.md#构建)。
 
-安装后在“服务器与桌面设置”填写 Zero 服务端地址，例如 `http://localhost:8080`。HTTP 连接需勾选允许 HTTP；连接后使用服务端账号登录。服务端与客户端不在同一台电脑时，应填写服务端的局域网地址或域名。
+安装后在“服务器与桌面设置”填写 Zero 服务端地址，例如 `http://localhost:8080`。HTTP 连接需勾选允许 HTTP；连接后生成配对码并批准登录。服务端与客户端不在同一台电脑时，应填写服务端的局域网地址或域名。
 
 左上角 **Zero Mail** 菜单提供收件箱、写邮件、服务器设置、重新连接、编辑、视图和退出操作。右上角是 Windows 原生窗口按钮；中间区域可拖动窗口。
 
@@ -68,6 +80,18 @@ docker compose --env-file deploy/.env ps
 | `Ctrl+R`            | 刷新邮件页面        |
 | `Ctrl++` / `Ctrl+-` | 放大 / 缩小邮件页面 |
 | `Ctrl+0`            | 恢复默认缩放        |
+
+## 使用 Android 客户端
+
+安卓工程位于 `native/mobile/android`，支持 Android 8.0+。安装 APK 后填写手机可访问的 Zero 服务器域名或局域网地址，再通过配对码或二维码申请登录。手机的 `localhost` 不表示部署服务器的电脑。
+
+附件通过系统文件选择器上传/保存；可用 `mailto:` 或系统文本分享进入写信页。后台通知需要主动开启，采用最短约 15 分钟的定期检查。安装、构建、签名与限制见[安卓说明](native/mobile/README.zh-CN.md)。
+
+## 使用 Apple 原生工程
+
+将完整仓库移到 Mac，使用 Xcode 打开 `native/apple/ZeroMail.xcodeproj`。macOS、iOS/iPadOS 和 watchOS 分别使用 `ZeroMac`、`ZeroIOS`、`ZeroWatch` Scheme，共享配对认证、Keychain 凭据存储和邮件 API 模块。
+
+构建、签名、模拟器与真机验收按[迁移说明](native/apple/MIGRATION.zh-CN.md)执行。当前为 Linux 上完成的源码交付，尚未完成 Apple SDK 编译；APNs、Widget、完整离线存储与商店发布仍需后续开发。
 
 ## 配置 LLM
 
@@ -110,6 +134,6 @@ node --test integrations/mail-sync/test/classify.test.mjs
 
 ## 使用边界
 
-当前部署为单机、单实例；Windows 安装程序尚未进行代码签名。客户端需要网络及服务端，不提供完整离线收发或 Outlook MAPI/COM 兼容。Compose 模式关闭定时发送与延迟撤回；移动端仍为开发脚手架，不包含在 1.0.0 Windows 验收范围内。
+当前部署为单机、单实例；Windows 安装程序尚未进行代码签名，Android 本地交付为开发签名 APK。客户端需要网络及服务端，不提供完整离线收发或 Outlook MAPI/COM 兼容。Compose 模式关闭定时发送与延迟撤回。Android 验证范围见其独立验收记录；Apple 原生应用待完成 Xcode 编译、签名与设备验收。
 
 邮件 AI 功能会根据操作向你配置的服务商发送必要内容。请按自身需求选择邮箱与 LLM 服务商，并备份数据库、桥接数据、Workers 数据和加密配置。
