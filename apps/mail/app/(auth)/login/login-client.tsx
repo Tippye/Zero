@@ -1,4 +1,4 @@
-import { SelfHostLogin } from '@/components/selfhost-login';
+import { PairingLogin } from '@/components/pairing-login';
 import { m } from '@/paraglide/messages';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -102,7 +102,7 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
     }));
   };
 
-  const displayProviders = isProd ? providers.filter((p) => p.enabled || p.isCustom) : providers;
+  const displayProviders = import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' ? [] : isProd ? providers.filter((p) => p.enabled || p.isCustom) : providers;
 
   const hasMissingRequiredProviders = missingRequiredProviders.length > 0;
 
@@ -147,7 +147,7 @@ function LoginClientContent({ providers, isProd }: LoginClientProps) {
           <p className="text-center text-4xl font-bold text-white md:text-5xl">{m['login.title']()}</p>
           <div className="text-white"><LanguageSwitcher /></div>
 
-          {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' && <SelfHostLogin />}
+          {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' && <PairingLogin />}
 
           {error && (
             <Alert variant="default" className="border-orange-500/40 bg-orange-500/10">

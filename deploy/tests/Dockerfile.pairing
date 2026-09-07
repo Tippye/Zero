@@ -1,0 +1,11 @@
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY deploy/runtime/package*.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY deploy/runtime/ ./
+COPY apps/server/src/db/migrations /app/migrations
+COPY integrations/mail-sync/schema.sql /app/sync-schema.sql
+RUN mkdir -p /data && chown node:node /data
+USER node
+ENV NODE_ENV=production
+CMD ["node", "server.mjs"]

@@ -10,14 +10,21 @@
 
 ```sh
 node deploy/init.mjs http://localhost:8080
-# 编辑 deploy/.env，设置 ADMIN_EMAIL 和至少 12 位的 ADMIN_PASSWORD。
 docker compose --env-file deploy/.env up -d --build
 docker compose --env-file deploy/.env ps
 ```
 
-打开配置的 PUBLIC_URL，以上述账号密码登录。其他设备使用同一账号，访问同一工作区。默认禁止公开注册，首次初始化不会重置数据库里已有账号的密码。旧本机访客工作区不会自动归并；迁移已有数据前需要备份并明确账号归属。
+打开配置的 PUBLIC_URL，填写设备名称并生成配对码。首台设备在服务器终端授权：
 
-生成脚本拒绝覆盖已有 deploy/.env。其中包含随机密钥、数据库密码和初始登录密码，不要提交 Git。网页中的 LLM 设置仍可直接配置服务商，不必填写服务器 AI 环境变量。
+```sh
+docker compose --env-file deploy/.env exec api node pairing.mjs approve ABCD-EFGH
+```
+
+将示例替换为设备显示的配对码，核对设备信息后输入 `yes`。后续设备在已登录设备上扫码，或进入「设置 → 安全」输入配对码并确认。所有设备访问同一工作区，各自拥有可撤销的会话。账号密码登录和公开注册均关闭。
+
+升级会保留现有工作区 ID 和邮箱／LLM 配置，一次性使旧登录会话失效，重新配对后继续使用。旧访客工作区不自动归并；发现多个现有工作区且不能确定归属时，迁移停止，需配置 `PAIRING_OWNER_ID`。完整流程、恢复和各端接入见[配对认证说明](AUTHENTICATION.zh-CN.md)。
+
+生成脚本拒绝覆盖已有 deploy/.env。其中包含数据库密码和加密密钥，不要提交 Git。新部署无需设置 `ADMIN_EMAIL` 或 `ADMIN_PASSWORD`；旧 `ADMIN_EMAIL` 仅用于首次升级识别工作区，`ADMIN_PASSWORD` 不再读取。网页中的 LLM 设置仍可直接配置服务商，不必填写服务器 AI 环境变量。
 
 默认只将 Web 的 HTTP 8080 映射到宿主机 127.0.0.1。局域网使用时，在 deploy/.env 中设置：
 
@@ -102,13 +109,15 @@ docker compose --env-file deploy/.env -f compose.yaml -f deploy/compose.https.ya
 
 ## 验证
 
-测试使用独立 Compose 项目、生成的账号和模拟邮件，不读取现有邮箱，不发送邮件：
+认证测试使用独立 Compose 项目和合成数据，不读取现有邮箱，不发送邮件：
 
 ```sh
-HTTP_PORT=18080 docker compose --env-file deploy/.env -p zero-compose-test up -d --build
-node deploy/tests/smoke.mjs
+pnpm --filter @zero/server exec wrangler deploy --dry-run --config wrangler.compose.json --outdir /tmp/zero-pairing-worker
+ZERO_COMPOSE_BUILD=true pnpm --filter @zero/mail build
+docker compose -f deploy/tests/compose.pairing.yaml up -d --build
+node deploy/tests/pairing.mjs
 # 浏览器需要 Playwright Chromium；也可指定已有 Chrome 路径。
-PLAYWRIGHT_EXECUTABLE_PATH=/path/to/chrome node deploy/tests/browser.cjs
+PLAYWRIGHT_EXECUTABLE_PATH=/path/to/chrome node deploy/tests/pairing-browser.cjs
 npm test --prefix native/desktop
 ```
 

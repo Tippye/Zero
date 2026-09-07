@@ -1,4 +1,6 @@
 import { desktopRouter } from './routes/desktop';
+import { pairingRouter } from './routes/pairing';
+import { allowPairedAuthRoute } from './lib/pairing-auth-policy';
 import {
   createUpdatedMatrixFromNewEmail,
   initializeStyleMatrixFromEmail,
@@ -629,7 +631,7 @@ const api = new Hono<HonoContext>()
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     c.set('sessionUser', session?.user);
 
-    if (c.req.header('Authorization') && !session?.user) {
+    if (env.SELF_HOSTED_AUTH !== 'required' && c.req.header('Authorization') && !session?.user) {
       // Start token verification span
       const tokenSpan = TraceContext.startSpan(
         traceId,
@@ -728,7 +730,12 @@ const api = new Hono<HonoContext>()
   .route('/autumn', autumnApi)
   .route('/public', publicRouter)
   .route('/desktop', desktopRouter)
+  .route('/pairing', pairingRouter)
   .on(['GET', 'POST', 'OPTIONS'], '/auth/*', (c) => {
+    // Self-hosted identity can only be established by pairing. Mail-provider
+    // linking retains Better Auth's state-bound callback flow.
+    if (env.SELF_HOSTED_AUTH === 'required' && !allowPairedAuthRoute(c.req.path, !!c.var.sessionUser))
+      return c.json({ error: 'pairing_required' }, 403);
     return c.var.auth.handler(c.req.raw);
   })
   .use(
@@ -757,6 +764,7 @@ const api = new Hono<HonoContext>()
   });
 
 const app = new Hono<HonoContext>()
+  .use(contextStorage())
   .use(
     '*',
     cors({
@@ -781,6 +789,7 @@ const app = new Hono<HonoContext>()
     }),
   )
   .get('.well-known/oauth-authorization-server', async (c) => {
+    if (env.SELF_HOSTED_AUTH === 'required') return c.json({ error: 'pairing_required' }, 404);
     const auth = createAuth();
     return oAuthDiscoveryMetadata(auth)(c.req.raw);
   })
@@ -793,13 +802,14 @@ const app = new Hono<HonoContext>()
         return new Response('Unauthorized', { status: 401 });
       }
       const auth = createAuth();
-      const session = await auth.api.getMcpSession({ headers: request.headers });
-      if (!session) {
-        console.log('Invalid auth provided', Array.from(request.headers.entries()));
+      const userId = env.SELF_HOSTED_AUTH === 'required'
+        ? (await auth.api.getSession({ headers: request.headers }))?.user.id
+        : (await auth.api.getMcpSession({ headers: request.headers }))?.userId;
+      if (!userId) {
         return new Response('Unauthorized', { status: 401 });
       }
       ctx.props = {
-        userId: session?.userId,
+        userId,
       };
       return ZeroMCP.serveSSE('/sse', { binding: 'ZERO_MCP' }).fetch(request, env, ctx);
     },
@@ -808,6 +818,8 @@ const app = new Hono<HonoContext>()
   .mount(
     '/mcp/thinking/sse',
     async (request, env, ctx) => {
+      if (env.SELF_HOSTED_AUTH === 'required' && !(await createAuth().api.getSession({ headers: request.headers }))?.user)
+        return new Response('Unauthorized', { status: 401 });
       return ThinkingMCP.serveSSE('/mcp/thinking/sse', { binding: 'THINKING_MCP' }).fetch(
         request,
         env,
@@ -824,13 +836,14 @@ const app = new Hono<HonoContext>()
         return new Response('Unauthorized', { status: 401 });
       }
       const auth = createAuth();
-      const session = await auth.api.getMcpSession({ headers: request.headers });
-      if (!session) {
-        console.log('Invalid auth provided', Array.from(request.headers.entries()));
+      const userId = env.SELF_HOSTED_AUTH === 'required'
+        ? (await auth.api.getSession({ headers: request.headers }))?.user.id
+        : (await auth.api.getMcpSession({ headers: request.headers }))?.userId;
+      if (!userId) {
         return new Response('Unauthorized', { status: 401 });
       }
       ctx.props = {
-        userId: session?.userId,
+        userId,
       };
       return ZeroMCP.serve('/mcp', { binding: 'ZERO_MCP' }).fetch(request, env, ctx);
     },

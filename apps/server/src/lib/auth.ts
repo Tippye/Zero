@@ -174,8 +174,8 @@ export const createAuth = () => {
       mcp({
         loginPage: env.VITE_PUBLIC_APP_URL + '/login',
       }),
-      jwt(),
-      bearer(),
+      ...(env.SELF_HOSTED_AUTH === 'required' ? [] : [jwt()]),
+      bearer({ requireSignature: env.SELF_HOSTED_AUTH === 'required' }),
       phoneNumber({
         sendOTP: async ({ code, phoneNumber }) => {
           await twilio().messages
@@ -265,7 +265,7 @@ export const createAuth = () => {
       },
     },
     emailAndPassword: {
-      enabled: env.SELF_HOSTED_AUTH === 'required',
+      enabled: false,
       disableSignUp: env.SELF_HOSTED_AUTH === 'required',
       requireEmailVerification: env.SELF_HOSTED_AUTH !== 'required',
       sendResetPassword: async ({ user, url }) => {
@@ -284,7 +284,7 @@ export const createAuth = () => {
     },
     emailVerification: {
       sendOnSignUp: false,
-      autoSignInAfterVerification: true,
+      autoSignInAfterVerification: env.SELF_HOSTED_AUTH !== 'required',
       sendVerificationEmail: async ({ user, token }) => {
         const verificationUrl = `${env.VITE_PUBLIC_APP_URL}/api/auth/verify-email?token=${token}&callbackURL=/settings/connections`;
 
@@ -343,7 +343,7 @@ const createAuthConfig = () => {
   return {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: 'pg' }),
-    secondaryStorage: {
+    secondaryStorage: env.SELF_HOSTED_AUTH === 'required' ? undefined : {
       get: async (key: string) => {
         const value = await cache.get(key);
         return typeof value === 'string' ? value : value ? JSON.stringify(value) : null;
@@ -378,7 +378,7 @@ const createAuthConfig = () => {
     ],
     session: {
       cookieCache: {
-        enabled: true,
+        enabled: env.SELF_HOSTED_AUTH !== 'required',
         maxAge: 60 * 60 * 24 * 30, // 30 days
       },
       expiresIn: 60 * 60 * 24 * 30, // 30 days

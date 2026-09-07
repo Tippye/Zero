@@ -1,24 +1,11 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { pairingTestLogin, testComposeArgs } from './pairing-helper.mjs';
 
 // This test restarts only the explicitly named acceptance project.
-const origin = 'http://localhost:18080';
-const config = Object.fromEntries(
-  (await readFile(new URL('../.env', import.meta.url), 'utf8'))
-    .split('\n')
-    .filter((line) => line.includes('=') && !line.startsWith('#'))
-    .map((line) => {
-      const i = line.indexOf('=');
-      return [line.slice(0, i), line.slice(i + 1)];
-    }),
-);
-const login = await fetch(origin + '/api/auth/sign-in/email', {
-  method: 'POST',
-  headers: { 'content-type': 'application/json', origin },
-  body: JSON.stringify({ email: config.ADMIN_EMAIL, password: config.ADMIN_PASSWORD }),
-});
+const origin = process.env.ZERO_TEST_URL || 'http://localhost:18080';
+const login = await pairingTestLogin(origin);
 assert.equal(login.status, 200);
 // Exclude the signed session-data cookie, so this checks persisted server-side sessions.
 const cookie = login.headers
@@ -48,22 +35,13 @@ try {
   const result = spawnSync(
     'docker',
     [
-      'compose',
-      '--env-file',
-      'deploy/.env',
-      '-p',
-      'zero-compose-test',
-      '-f',
-      'compose.yaml',
-      '-f',
-      'deploy/compose.https.yaml',
+      ...testComposeArgs(),
       'restart',
       'db',
       'redis',
       'redis-http',
       'api',
-      'imap-bridge',
-      'mail-sync',
+      ...(process.env.ZERO_TEST_PROJECT === 'zero-pairing-test' ? [] : ['imap-bridge', 'mail-sync']),
       'web',
     ],
     { encoding: 'utf8' },

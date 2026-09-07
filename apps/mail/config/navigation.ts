@@ -160,6 +160,7 @@ export const navigationConfig: Record<string, NavConfig> = {
             icon: Users,
           },
           { title: m['llm.title'](), url: '/settings/llm', icon: Stars },
+          ...(import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' ? [{ title: m['pages.settings.security.title'](), url: '/settings/security', icon: LockIcon }] : []),
           {
             title: m['navigation.settings.privacy'](),
             url: '/settings/privacy',

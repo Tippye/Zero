@@ -9,6 +9,7 @@ desktopRouter.get('/info', (c) =>
   c.json({
     server: 'zero',
     apiVersion: 1,
+    authentication: env.SELF_HOSTED_AUTH === 'required' ? { type: 'pairing', version: 1, endpoint: '/api/pairing' } : undefined,
     notifications: env.SELF_HOSTED_AUTH === 'required',
     protocols: ['mailto', 'zeromail'],
   }),

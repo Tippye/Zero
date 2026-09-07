@@ -82,8 +82,8 @@ services:
     command: [node, migrate.mjs]
     environment:
       <<: *api-env
-      ADMIN_EMAIL: ${ADMIN_EMAIL:?Required}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Required}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      PAIRING_OWNER_ID: ${PAIRING_OWNER_ID:-}
     depends_on:
       db: { condition: service_healthy }
     restart: 'no'

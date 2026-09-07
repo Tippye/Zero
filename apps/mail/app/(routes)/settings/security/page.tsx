@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form';
 
 import { useState } from 'react';
 import * as z from 'zod';
+import { PairingDevices } from '@/components/pairing-devices';
 
 const formSchema = z.object({
   twoFactorAuth: z.boolean(),
@@ -22,6 +23,11 @@ const formSchema = z.object({
 });
 
 export default function SecurityPage() {
+  if (import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required') return <PairingDevices />;
+  return <HostedSecurityPage />;
+}
+
+function HostedSecurityPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({

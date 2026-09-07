@@ -1,0 +1,21 @@
+name: Apple authentication module
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['native/apple/**', '.github/workflows/apple-auth.yml']
+permissions:
+  contents: read
+jobs:
+  auth:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test macOS authentication and Keychain
+        working-directory: native/apple
+        run: swift test
+      - name: Compile iPhone and iPad authentication
+        working-directory: native/apple
+        run: xcodebuild -scheme ZeroPairing -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/zero-auth-ios CODE_SIGNING_ALLOWED=NO build
+      - name: Compile Apple Watch authentication
+        working-directory: native/apple
+        run: xcodebuild -scheme ZeroPairing -destination 'generic/platform=watchOS Simulator' -derivedDataPath /tmp/zero-auth-watch CODE_SIGNING_ALLOWED=NO build

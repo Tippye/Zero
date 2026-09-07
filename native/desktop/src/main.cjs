@@ -142,6 +142,7 @@ if (!locked) {
         click: () => navigate('/mail/compose'),
       },
       { label: '服务器与桌面设置 / Settings', click: openSettings },
+      { label: '设备配对与登录 / Paired devices', click: () => navigate('/pair') },
       { label: '重新连接 / Reconnect', click: () => void connect() },
       { type: 'separator' },
       { label: '退出 / Quit', click: () => app.quit() },

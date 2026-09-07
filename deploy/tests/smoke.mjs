@@ -1,22 +1,8 @@
-import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const config = Object.fromEntries(
-  (await readFile(new URL('../.env', import.meta.url), 'utf8'))
-    .split('\n')
-    .filter((x) => x.includes('=') && !x.startsWith('#'))
-    .map((x) => {
-      const i = x.indexOf('=');
-      return [x.slice(0, i), x.slice(i + 1)];
-    }),
-);
+import { pairingTestLogin } from './pairing-helper.mjs';
 const origin = process.env.ZERO_TEST_URL || 'http://localhost:18080';
 async function login() {
-  const response = await fetch(origin + '/api/auth/sign-in/email', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', origin },
-    body: JSON.stringify({ email: config.ADMIN_EMAIL, password: config.ADMIN_PASSWORD }),
-  });
-  assert.equal(response.status, 200, 'password login failed');
+  const response = await pairingTestLogin(origin);
   const cookie = response.headers
     .getSetCookie()
     .map((s) => s.split(';')[0])
