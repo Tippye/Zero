@@ -1,29 +1,33 @@
-# ZeroPairing — Apple authentication
+# Zero Mail for Apple platforms
 
-Shared Swift package for macOS 12+, iOS/iPadOS 15+, and watchOS 8+. It implements the same password-free device authorization used by the web, Electron and Android clients. It has no third-party dependencies.
+Native SwiftUI applications share the `ZeroPairing` authentication library and the `ZeroMail` mail library. Open **ZeroMail.xcodeproj** in Xcode 16 or later:
 
-Add this local package to an Apple app target and present:
+| Scheme    | Platform                                           | Minimum OS      |
+| --------- | -------------------------------------------------- | --------------- |
+| ZeroMac   | Native macOS, SwiftUI + AppKit/WebKit              | macOS 13        |
+| ZeroIOS   | Universal iPhone and iPad application              | iOS / iPadOS 16 |
+| ZeroWatch | Independent, single-target Apple Watch application | watchOS 9       |
 
-```swift
-import ZeroPairing
+**[迁移到 macOS、继续开发与验收说明](MIGRATION.zh-CN.md)** · **[验证记录](VALIDATION.zh-CN.md)**
 
-let authentication = try PairingClient(server: URL(string: "https://mail.example.com")!)
-PairingLoginView(client: authentication, deviceName: "My iPhone") {
-    // Replace the login screen with the app's authenticated content.
-}
-```
+The checked-in project includes application targets and shared schemes. No project generator or third-party Swift dependencies are needed to open or build it. `scripts/generate-project.rb` is only for deliberate project regeneration; it uses `xcodeproj` 1.27.0 and overwrites project settings.
 
-The view displays the short code and, where Core Image is available, a QR code. A signed-in device or the server administrator must approve it. The request's private secret stays in memory. Successful authorization stores a separate, opaque bearer value in Keychain for this exact server origin; the token is not shared with another Apple device. Failed or expired requests can be started again. Cancelling the view stops polling.
+Implemented source includes device pairing and management, mailbox selection, search and pagination, thread reading, read/star/archive/trash actions, composing/replying, mailbox drafts, attachments, Handoff routing, `mailto:` / `zeromail:` links, and an App Intent that opens the composer for review. Watch has a separate compact reading and reply UI. Server account setup remains in the existing web settings.
 
-`preview(code:)` and `decide(code:requestID:approve:)` support native approval screens. Display the preview and obtain explicit user confirmation before calling `decide`. `devices()`, `revoke(_:)` and `signOut()` manage device sessions. A network failure during sign-out clears the local credential and reports the failure; use another device or the server CLI to revoke the remote session if necessary.
+Credentials stay in device-only Keychain entries, isolated by HTTPS server origin. A device must pair separately; Handoff carries no credentials or message body. HTTP, redirects, cookie storage and URL caching are disabled in application networking. Mail content stays in memory except explicitly exported attachments or drafts saved to the server. The optional HTML renderer blocks scripts, remote resources, navigation and form submissions.
 
-The default transport uses an ephemeral URLSession, ignores cookies, refuses redirects, and verifies TLS normally. HTTP is disabled unless the caller explicitly passes `allowHTTP: true` for a trusted local deployment. Keychain items use `AfterFirstUnlockThisDeviceOnly` and do not sync through iCloud. Linux has no plaintext credential fallback; tests inject an in-memory store.
+The native API is `POST /api/native/v1/{operation}` with the opaque signed bearer returned by pairing. It delegates ownership checks and provider operations to the existing unified mailbox routers. It does not implement a second IMAP client or copy mailbox passwords to Apple devices. See [API.md](API.md).
+
+On macOS:
 
 ```sh
 cd native/apple
-swift test
+bash scripts/validate-macos.sh
+open ZeroMail.xcodeproj
 ```
 
-The `Apple authentication module` GitHub workflow tests Keychain and builds iOS/iPadOS and watchOS simulator libraries on macOS. Linux tests exercise the protocol and store interface; they do not compile SwiftUI or Security.framework. The repository's iOS Capacitor shell is still experimental, and complete macOS/iOS/watchOS mail app targets remain separate platform-adaptation work. This package supplies their authentication flow and view, not a distributable mail application.
+This handoff was developed and checked on Linux. Foundation/Swift protocol tests, server integration tests, Swift syntax and project structure checks pass; **Xcode builds, SwiftUI runtime behavior, Keychain on Apple hardware and distribution have not yet been executed**. The macOS workflow is configured but was not run during this handoff. Push notifications, widgets, share extensions, offline storage, app icons, signing and distribution are listed as subsequent work in the migration guide.
 
-See [the complete pairing and recovery guide](../../deploy/AUTHENTICATION.zh-CN.md). Apple API references: [ephemeral URLSession](https://developer.apple.com/documentation/foundation/urlsessionconfiguration/ephemeral), [Keychain device-only access](https://developer.apple.com/documentation/security/ksecattraccessibleafterfirstunlockthisdeviceonly).
+The existing Electron Windows client and experimental Capacitor shell remain available. Apple development should continue in this directory.
+
+Authentication and recovery: [deployment guide](../../deploy/AUTHENTICATION.zh-CN.md). Apple references: [SwiftUI navigation across platforms](https://developer.apple.com/documentation/technotes/tn3154-adopting-swiftui-navigation-split-view), [independent watchOS applications](https://developer.apple.com/documentation/watchos-apps/creating-independent-watchos-apps), [Handoff](https://developer.apple.com/documentation/foundation/implementing-handoff-in-your-app).

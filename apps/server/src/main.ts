@@ -1,5 +1,6 @@
 import { desktopRouter } from './routes/desktop';
 import { pairingRouter } from './routes/pairing';
+import { nativeRouter } from './routes/native';
 import { allowPairedAuthRoute } from './lib/pairing-auth-policy';
 import {
   createUpdatedMatrixFromNewEmail,
@@ -731,6 +732,7 @@ const api = new Hono<HonoContext>()
   .route('/public', publicRouter)
   .route('/desktop', desktopRouter)
   .route('/pairing', pairingRouter)
+  .route('/native', nativeRouter)
   .on(['GET', 'POST', 'OPTIONS'], '/auth/*', (c) => {
     // Self-hosted identity can only be established by pairing. Mail-provider
     // linking retains Better Auth's state-bound callback flow.

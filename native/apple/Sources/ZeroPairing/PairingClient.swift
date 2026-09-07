@@ -82,14 +82,24 @@ public actor PairingClient {
         }
     }
     private func call(_ path: String, body: [String: String]? = nil, authorized: Bool = false) async throws -> Data {
+        try await request(path, body: body.map { try JSONSerialization.data(withJSONObject: $0) }, authorized: authorized)
+    }
+    /// Only the versioned mail API is exposed to clients; credentials remain in this actor.
+    public func mailRequest(operation: String, body: Data) async throws -> Data {
+        guard !operation.isEmpty, operation.allSatisfy({ $0.isASCII && ($0.isLetter || $0 == "-") }) else { throw PairingFailure.invalidServer }
+        return try await request("/api/native/v1/" + operation, body: body, authorized: true)
+    }
+    public func hasCredential() throws -> Bool { try store.read(server: server.absoluteString) != nil }
+    private func request(_ path: String, body: Data?, authorized: Bool) async throws -> Data {
         guard path.hasPrefix("/api/"), let url = URL(string: path, relativeTo: server)?.absoluteURL,
               url.scheme == server.scheme, url.host == server.host, url.port == server.port else { throw PairingFailure.invalidServer }
         var request = URLRequest(url: url)
+        if path == "/api/native/v1/send" { request.timeoutInterval = 120 }
         request.httpMethod = body == nil ? "GET" : "POST"
         request.setValue(server.absoluteString, forHTTPHeaderField: "Origin")
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            request.httpBody = body
         }
         if authorized {
             guard let token = try store.read(server: server.absoluteString) else { throw PairingFailure.signedOut }

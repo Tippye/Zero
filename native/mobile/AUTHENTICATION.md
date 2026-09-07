@@ -6,6 +6,6 @@ Use **Settings → Security** inside the mail page to approve another device or 
 
 Switching servers or clearing app data still clears local sessions. Existing `mailto:`/compose redirects resume after pairing. New deployment configuration no longer contains a Zero login password; mailbox-provider credentials are configured separately after pairing.
 
-The experimental iOS scaffold can reuse the shared web pairing page when integrated with the server. For native iOS/iPadOS and watchOS authentication, use the [Swift package and login view](../apple/README.md), which share the same API and keep native credentials in Keychain. Creating and validating full Apple application targets is separate from this authentication change.
+The experimental iOS scaffold can reuse the shared web pairing page when integrated with the server. Apple development now continues in the [native SwiftUI applications](../apple/README.md): `ZeroMail.xcodeproj` includes macOS, iPhone/iPad and independent watchOS targets, using the shared pairing API and device-only Keychain credentials. See the [macOS migration guide](../apple/MIGRATION.zh-CN.md) for Xcode validation and remaining platform work.
 
 See [pairing, first-device authorization and recovery](../../deploy/AUTHENTICATION.zh-CN.md).

@@ -1,0 +1,186 @@
+import Foundation
+
+public struct MailAccount: Codable, Identifiable, Sendable, Hashable {
+    public let id: String
+    public let email: String
+    public let name: String
+    public let providerId: String
+    public let connected: Bool
+    public let warning: String?
+}
+public struct MailAddress: Codable, Sendable, Hashable {
+    public var email: String
+    public var name: String?
+    public var display: String { name.flatMap { $0.isEmpty ? nil : $0 } ?? email }
+    public init(email: String, name: String? = nil) { self.email = email; self.name = name }
+}
+public enum MailFolder: String, CaseIterable, Identifiable, Codable, Sendable {
+    case inbox, starred, sent, draft, archive, spam, trash
+    public var id: String { rawValue }
+    public var title: String {
+        switch self { case .inbox: return "收件箱"; case .starred: return "星标"; case .sent: return "已发送"; case .draft: return "草稿"; case .archive: return "归档"; case .spam: return "垃圾邮件"; case .trash: return "废纸篓" }
+    }
+    public var symbol: String {
+        switch self { case .inbox: return "tray"; case .starred: return "star"; case .sent: return "paperplane"; case .draft: return "doc"; case .archive: return "archivebox"; case .spam: return "exclamationmark.shield"; case .trash: return "trash" }
+    }
+}
+public struct MailSummary: Codable, Identifiable, Sendable, Hashable {
+    public let id: String
+    public let accountId: String
+    public let accountEmail: String
+    public let subject: String
+    public let sender: MailAddress
+    public let receivedOn: String
+    public let snippet: String
+    public let unread: Bool
+    public let starred: Bool
+    public let isDraft: Bool
+}
+public struct MailWarning: Codable, Sendable {
+    public let accountId: String
+    public let email: String
+    public let message: String
+}
+public struct MailPage: Codable, Sendable {
+    public let threads: [MailSummary]
+    public let cursor: String?
+    public let warnings: [MailWarning]
+}
+public struct MailAttachment: Codable, Identifiable, Sendable {
+    public var id: String { attachmentId }
+    public let attachmentId: String
+    public let filename: String
+    public let mimeType: String
+    public let size: Int
+    public let body: String?
+    public func decodedData() throws -> Data {
+        guard let body, body.count <= 28 * 1024 * 1024 else { throw MailFailure.invalidAttachment }
+        var base64 = body.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        guard let data = Data(base64Encoded: base64), data.count == size else { throw MailFailure.invalidAttachment }
+        return data
+    }
+    public var safeFilename: String {
+        let name = filename.components(separatedBy: CharacterSet(charactersIn: "/\\:").union(.controlCharacters)).joined(separator: "_")
+        return name.isEmpty || name == "." || name == ".." ? "attachment" : String(name.prefix(180))
+    }
+}
+public struct MailMessage: Codable, Identifiable, Sendable {
+    public let id: String
+    public let sender: MailAddress
+    public let to: [MailAddress]
+    public let cc: [MailAddress]
+    public let bcc: [MailAddress]
+    public let subject: String
+    public let receivedOn: String
+    public let text: String
+    public let html: String
+    public let messageId: String?
+    public let replyTo: String?
+    public let references: String?
+    public let isDraft: Bool
+    public let attachments: [MailAttachment]
+}
+public struct MailThread: Codable, Identifiable, Sendable {
+    public let id: String
+    public let unread: Bool
+    public let starred: Bool
+    public let messages: [MailMessage]
+}
+public struct SavedDraft: Decodable, Sendable {
+    public let id: String
+    public let to: [String]?
+    public let cc: [String]?
+    public let bcc: [String]?
+    public let subject: String?
+    public let text: String
+    public let attachments: [MailAttachment]?
+    public let content: String?
+}
+public enum MailFailure: Error, LocalizedError {
+    case invalidRecipients, invalidAttachment, oversizedAttachments, sendRejected
+    public var errorDescription: String? {
+        switch self {
+        case .invalidRecipients: return "请输入有效的邮箱地址，多个地址用逗号分隔。"
+        case .invalidAttachment: return "无法读取附件。"
+        case .oversizedAttachments: return "附件总大小不能超过 15 MB，最多 20 个。"
+        case .sendRejected: return "服务器未确认发送成功，请检查已发送文件夹。"
+        }
+    }
+}
+public struct OutgoingAttachment: Codable, Sendable, Identifiable, Equatable {
+    public var id: String { name + ":" + String(size) + ":" + String(lastModified) }
+    public let name: String
+    public let type: String
+    public let size: Int
+    public let lastModified: Double
+    public let base64: String
+    public init(name: String, type: String, data: Data) throws {
+        guard data.count <= 15 * 1024 * 1024 else { throw MailFailure.oversizedAttachments }
+        self.name = name; self.type = type; self.size = data.count
+        self.lastModified = Date().timeIntervalSince1970 * 1000; self.base64 = data.base64EncodedString()
+    }
+}
+public struct OutgoingMail: Codable, Sendable {
+    public var accountId: String
+    public var to: [MailAddress]
+    public var cc: [MailAddress]
+    public var bcc: [MailAddress]
+    public var subject: String
+    public var message: String
+    public var attachments: [OutgoingAttachment]
+    public var threadId: String?
+    public var draftId: String?
+    public var headers: [String: String]
+    public var operationId: String
+}
+
+public struct MailComposer: Codable, Identifiable, Sendable {
+    public var id = UUID()
+    public var accountId = ""
+    public var to = ""
+    public var cc = ""
+    public var bcc = ""
+    public var subject = ""
+    public var text = ""
+    public var originalHTML: String?
+    public var originalText: String?
+    public var attachments: [OutgoingAttachment] = []
+    public var threadId: String?
+    public var draftId: String?
+    public var headers: [String: String] = [:]
+    public init(accountId: String = "") { self.accountId = accountId }
+    public static func recipients(_ value: String) throws -> [MailAddress] {
+        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return [] }
+        return try value.split(separator: ",", omittingEmptySubsequences: false).map {
+            let email = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard email.range(of: #"^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$"#, options: .regularExpression) != nil else { throw MailFailure.invalidRecipients }
+            return MailAddress(email: email)
+        }
+    }
+    public func outgoing() throws -> OutgoingMail {
+        guard attachments.count <= 20, attachments.reduce(0, { $0 + $1.size }) <= 15 * 1024 * 1024 else { throw MailFailure.oversizedAttachments }
+        let escaped = text.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>")
+        let html = text == originalText ? (originalHTML ?? "<div>" + escaped + "</div>") : "<div>" + escaped + "</div>"
+        return try OutgoingMail(accountId: accountId, to: Self.recipients(to), cc: Self.recipients(cc), bcc: Self.recipients(bcc), subject: subject, message: html, attachments: attachments, threadId: threadId, draftId: draftId, headers: headers, operationId: id.uuidString)
+    }
+    public static func reply(to message: MailMessage, threadID: String, account: MailAccount, all: Bool = false) -> MailComposer {
+        var result = MailComposer(accountId: account.id)
+        // Reply-To may contain a display name. Only accept a single mailbox here.
+        let reply = message.replyTo ?? message.sender.email
+        let extracted = reply.range(of: #"<([^<>]+)>"#, options: .regularExpression).map { String(reply[$0].dropFirst().dropLast()) } ?? reply
+        result.to = (try? recipients(extracted))?.first?.email ?? message.sender.email
+        if all {
+            var seen = Set([account.email.lowercased(), result.to.lowercased()])
+            result.cc = (message.to + message.cc).filter { seen.insert($0.email.lowercased()).inserted }.map(\.email).joined(separator: ", ")
+        }
+        result.subject = message.subject.lowercased().hasPrefix("re:") ? message.subject : "Re: " + message.subject
+        result.threadId = threadID
+        if let messageID = message.messageId {
+            result.headers["In-Reply-To"] = messageID
+            result.headers["References"] = [message.references, messageID].compactMap { $0 }.joined(separator: " ")
+        }
+        result.text = "\n\n" + message.sender.display + "：\n" + message.text.split(separator: "\n", omittingEmptySubsequences: false).map { "> " + $0 }.joined(separator: "\n")
+        return result
+    }
+}

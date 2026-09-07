@@ -1,0 +1,910 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06E1B2B0BB87E3F662199A53632CC615 /* MailboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B032EFFF041F5D8C338B9091BC6203F /* MailboxView.swift */; };
+		125A60A85746D1A55E6E4DBA7225C9A5 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69C29AF7D300CF6DD01A1D789AD816F /* OnboardingTests.swift */; };
+		125F73303833F554943134B50C73FDB9 /* MailShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB190DF6202B44D218C0C37C7181C54 /* MailShortcuts.swift */; };
+		1ED9900CF61F86F37E09C984C4597F0B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5AFBE2219622614EA07FFF3DF1373FF /* Foundation.framework */; };
+		1F551881431C9B7AEF6A4E2AA0BE1A18 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5556B80F4532EF342033BCF7A01C70 /* ComposerView.swift */; };
+		2027D22E535CE5B08AF52632F20C8C01 /* HTMLMailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D786571CCBA961DB6C152CB6EC17FC /* HTMLMailView.swift */; };
+		24411A1C83E1D03A1D1BEA4CD3AB76D9 /* ZeroMailApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18057D14ACCBBC49678AA26CED15D269 /* ZeroMailApp.swift */; };
+		269D4FAA5F29DFE7AA6D04D1735F4054 /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA9D561C0551A603081A7B76A065ADD /* SessionView.swift */; };
+		2A658E9F454526DE4F367A98A2AF3CE4 /* MailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E36F8D1008246C18B8FDF0230E435C35 /* MailStore.swift */; };
+		2E0CD5F35943383F59E20EF1522FD143 /* MailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E36F8D1008246C18B8FDF0230E435C35 /* MailStore.swift */; };
+		2F1F9929D22220142AB540AD351A46B8 /* ZeroPairing in Frameworks */ = {isa = PBXBuildFile; productRef = C53DEEA1F5069BFE1B1A2EDAB7966B13 /* ZeroPairing */; };
+		325E9CB2314ADDC5B3132DBC6C4F1C8E /* ZeroWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1FA03407567ED529F9D8A3280A356D /* ZeroWatchApp.swift */; };
+		3478835EBDF57441978CB91ED12AB2B2 /* DeviceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84244C9DC019550B4772839C585C1006 /* DeviceSettingsView.swift */; };
+		3DCA1E8FC57902F0E1EB29C59ECC2931 /* ZeroMailApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18057D14ACCBBC49678AA26CED15D269 /* ZeroMailApp.swift */; };
+		464B1FEA847F7CEC8D7901100700C428 /* WatchMailboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08880FA519117B48FD855316812AC939 /* WatchMailboxView.swift */; };
+		483BC2DD5511C412AC2554C9CF6780A8 /* MailShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB190DF6202B44D218C0C37C7181C54 /* MailShortcuts.swift */; };
+		5455FA85D1C5E3D973BFC58B6D8BCD9D /* ZeroPairing in Frameworks */ = {isa = PBXBuildFile; productRef = 29FC62D00B4F4CF4CDC7894B6D455677 /* ZeroPairing */; };
+		59149E2F8914F48E2C942946831819EA /* MailboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B032EFFF041F5D8C338B9091BC6203F /* MailboxView.swift */; };
+		5A7F11C61B55B1D3BBEC487868B72237 /* ZeroMail in Frameworks */ = {isa = PBXBuildFile; productRef = 3EA2F8C73F04C774382B400AD1425760 /* ZeroMail */; };
+		5E8C3ECFD3B65ED6E343AB9C39AFE536 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C3A32431A3B56EC1922F28D520B57BA5 /* PrivacyInfo.xcprivacy */; };
+		7C9928CFBD2DC4608D473DAC79FB4082 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6C558C6C714FF89C5DC507EFA43F76F /* Cocoa.framework */; };
+		8349BF35DAF58B643D74167D4391E6D5 /* ZeroMail in Frameworks */ = {isa = PBXBuildFile; productRef = 79D7F8B6925ACF9866694B486B00536A /* ZeroMail */; };
+		9ACB7559F465C7AE2D3F7EAA7A638618 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C3A32431A3B56EC1922F28D520B57BA5 /* PrivacyInfo.xcprivacy */; };
+		A8ADF6FEEDAB59E64B9F5273ECBA1221 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5556B80F4532EF342033BCF7A01C70 /* ComposerView.swift */; };
+		ADF66805A085EB5536C176472F07A507 /* ZeroPairing in Frameworks */ = {isa = PBXBuildFile; productRef = DF5C0CEE9291BCC60B69FEDBDE0E93FF /* ZeroPairing */; };
+		B04B87A0B24A07EA71C6441FC910D0D1 /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA9D561C0551A603081A7B76A065ADD /* SessionView.swift */; };
+		B78AA6CA42DD766F145BC49D20B3BD3E /* ZeroMail in Frameworks */ = {isa = PBXBuildFile; productRef = D01C64306A4E1B321A68A549F853AD66 /* ZeroMail */; };
+		BBF7B34544B926CB6889B9493E6E3A8F /* SessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA9D561C0551A603081A7B76A065ADD /* SessionView.swift */; };
+		BC4B47453344D926352380B41836045A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5AFBE2219622614EA07FFF3DF1373FF /* Foundation.framework */; };
+		C464EF1849A6BCC63587A4B7EB590307 /* HTMLMailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D786571CCBA961DB6C152CB6EC17FC /* HTMLMailView.swift */; };
+		C7BE55BFA78E429CC66616DF77F4914D /* MailboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B032EFFF041F5D8C338B9091BC6203F /* MailboxView.swift */; };
+		CA4A5D398A211389393D3A19DE222F7A /* DeviceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84244C9DC019550B4772839C585C1006 /* DeviceSettingsView.swift */; };
+		D6064CFF10ECCE8B14198968E47BA0EC /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A69C29AF7D300CF6DD01A1D789AD816F /* OnboardingTests.swift */; };
+		D9C98A2E66F383EDD275ACEA77551DDE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22CFD1326F1A1E0ECAB56240A825CCF6 /* Foundation.framework */; };
+		E044432D211FFBA765654904075A1CF3 /* DeviceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84244C9DC019550B4772839C585C1006 /* DeviceSettingsView.swift */; };
+		E06ED75526BD6115CB57E0D89BBEBC58 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F6C558C6C714FF89C5DC507EFA43F76F /* Cocoa.framework */; };
+		E21A5879BE35908F75184E7E7A3E021E /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5556B80F4532EF342033BCF7A01C70 /* ComposerView.swift */; };
+		F172FE6A119FC907C029EB2FF1E11C35 /* HTMLMailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D786571CCBA961DB6C152CB6EC17FC /* HTMLMailView.swift */; };
+		F3281A66BD22AC52BC3C8754947DF341 /* MailStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E36F8D1008246C18B8FDF0230E435C35 /* MailStore.swift */; };
+		F62374E79C557475E9B402849FC04C9F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = C3A32431A3B56EC1922F28D520B57BA5 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		245560734D12D2D334B38C00CDBE824F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C45FC0CBECE03DD6811F67CD7A4BD1C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 10A76D0907E2F33B4FAC15820C2FECC5;
+			remoteInfo = ZeroMac;
+		};
+		2A75E2426BFC301AB3B9F5A2BF49FF64 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7C45FC0CBECE03DD6811F67CD7A4BD1C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 788447F62F7662B8D43B666C79183F76;
+			remoteInfo = ZeroIOS;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		08880FA519117B48FD855316812AC939 /* WatchMailboxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchMailboxView.swift; path = Apps/Watch/WatchMailboxView.swift; sourceTree = "<group>"; };
+		094F1D2B4145684482E0B8F420111282 /* ZeroIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZeroIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0AA9D561C0551A603081A7B76A065ADD /* SessionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SessionView.swift; path = Apps/Shared/SessionView.swift; sourceTree = "<group>"; };
+		0F5556B80F4532EF342033BCF7A01C70 /* ComposerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerView.swift; path = Apps/Shared/ComposerView.swift; sourceTree = "<group>"; };
+		116235D29FDA46D2CD28A2B88E43199C /* ZeroMac-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "ZeroMac-Info.plist"; path = "Configuration/ZeroMac-Info.plist"; sourceTree = "<group>"; };
+		18057D14ACCBBC49678AA26CED15D269 /* ZeroMailApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ZeroMailApp.swift; path = Apps/Mail/ZeroMailApp.swift; sourceTree = "<group>"; };
+		1B032EFFF041F5D8C338B9091BC6203F /* MailboxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MailboxView.swift; path = Apps/Shared/MailboxView.swift; sourceTree = "<group>"; };
+		21B5B9463B401BD442ED675838C82FD3 /* ZeroIOSUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZeroIOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		22CFD1326F1A1E0ECAB56240A825CCF6 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS11.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		4DB190DF6202B44D218C0C37C7181C54 /* MailShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MailShortcuts.swift; path = Apps/Mail/MailShortcuts.swift; sourceTree = "<group>"; };
+		5A760BB0566B1CD701E58811BC6057AD /* ZeroMacUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ZeroMacUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		77D786571CCBA961DB6C152CB6EC17FC /* HTMLMailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HTMLMailView.swift; path = Apps/Shared/HTMLMailView.swift; sourceTree = "<group>"; };
+		84244C9DC019550B4772839C585C1006 /* DeviceSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DeviceSettingsView.swift; path = Apps/Shared/DeviceSettingsView.swift; sourceTree = "<group>"; };
+		8A4E589639B2DDC3D5D464E7865700FD /* ZeroIOS-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "ZeroIOS-Info.plist"; path = "Configuration/ZeroIOS-Info.plist"; sourceTree = "<group>"; };
+		A69C29AF7D300CF6DD01A1D789AD816F /* OnboardingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingTests.swift; path = Tests/AppUITests/OnboardingTests.swift; sourceTree = "<group>"; };
+		AE1FA03407567ED529F9D8A3280A356D /* ZeroWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ZeroWatchApp.swift; path = Apps/Watch/ZeroWatchApp.swift; sourceTree = "<group>"; };
+		C3A32431A3B56EC1922F28D520B57BA5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Configuration/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		C5AFBE2219622614EA07FFF3DF1373FF /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		D8FDE78C4D3C2C541350BFC6F2C0AF6D /* ZeroWatch-Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = "ZeroWatch-Info.plist"; path = "Configuration/ZeroWatch-Info.plist"; sourceTree = "<group>"; };
+		DD4779F350B4B820341BAD81AD00F24D /* ZeroMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZeroMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E36F8D1008246C18B8FDF0230E435C35 /* MailStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MailStore.swift; path = Apps/Shared/MailStore.swift; sourceTree = "<group>"; };
+		F5682C2297519EB63B0592C2852C454B /* ZeroWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ZeroWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6C558C6C714FF89C5DC507EFA43F76F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0BC743A6AD4638FDA600A37472F19AE0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C9928CFBD2DC4608D473DAC79FB4082 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		182BCC64E68CBA9FE35A89F53BE5DBBF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1ED9900CF61F86F37E09C984C4597F0B /* Foundation.framework in Frameworks */,
+				ADF66805A085EB5536C176472F07A507 /* ZeroPairing in Frameworks */,
+				8349BF35DAF58B643D74167D4391E6D5 /* ZeroMail in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		773828684BEAEA22AAC2305B026449A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BC4B47453344D926352380B41836045A /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8BA7989DCF399B4B76A5B95275EFB7D3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D9C98A2E66F383EDD275ACEA77551DDE /* Foundation.framework in Frameworks */,
+				2F1F9929D22220142AB540AD351A46B8 /* ZeroPairing in Frameworks */,
+				B78AA6CA42DD766F145BC49D20B3BD3E /* ZeroMail in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E555A3F5DAB2D1E7A8C65102E61F0332 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E06ED75526BD6115CB57E0D89BBEBC58 /* Cocoa.framework in Frameworks */,
+				5455FA85D1C5E3D973BFC58B6D8BCD9D /* ZeroPairing in Frameworks */,
+				5A7F11C61B55B1D3BBEC487868B72237 /* ZeroMail in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		3F93A318932562E5BD8379F1B9237452 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DD4779F350B4B820341BAD81AD00F24D /* ZeroMac.app */,
+				5A760BB0566B1CD701E58811BC6057AD /* ZeroMacUITests.xctest */,
+				094F1D2B4145684482E0B8F420111282 /* ZeroIOS.app */,
+				21B5B9463B401BD442ED675838C82FD3 /* ZeroIOSUITests.xctest */,
+				F5682C2297519EB63B0592C2852C454B /* ZeroWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		42000A6BA996EFC0B03423A03E3F9B1A /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				22CFD1326F1A1E0ECAB56240A825CCF6 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
+		5809BA50784ACE059862495311D2FA59 = {
+			isa = PBXGroup;
+			children = (
+				3F93A318932562E5BD8379F1B9237452 /* Products */,
+				BF7C0DDC82B782FF8C63B5AC7118242E /* Frameworks */,
+				4DB190DF6202B44D218C0C37C7181C54 /* MailShortcuts.swift */,
+				18057D14ACCBBC49678AA26CED15D269 /* ZeroMailApp.swift */,
+				0F5556B80F4532EF342033BCF7A01C70 /* ComposerView.swift */,
+				84244C9DC019550B4772839C585C1006 /* DeviceSettingsView.swift */,
+				77D786571CCBA961DB6C152CB6EC17FC /* HTMLMailView.swift */,
+				E36F8D1008246C18B8FDF0230E435C35 /* MailStore.swift */,
+				1B032EFFF041F5D8C338B9091BC6203F /* MailboxView.swift */,
+				0AA9D561C0551A603081A7B76A065ADD /* SessionView.swift */,
+				C3A32431A3B56EC1922F28D520B57BA5 /* PrivacyInfo.xcprivacy */,
+				116235D29FDA46D2CD28A2B88E43199C /* ZeroMac-Info.plist */,
+				A69C29AF7D300CF6DD01A1D789AD816F /* OnboardingTests.swift */,
+				8A4E589639B2DDC3D5D464E7865700FD /* ZeroIOS-Info.plist */,
+				08880FA519117B48FD855316812AC939 /* WatchMailboxView.swift */,
+				AE1FA03407567ED529F9D8A3280A356D /* ZeroWatchApp.swift */,
+				D8FDE78C4D3C2C541350BFC6F2C0AF6D /* ZeroWatch-Info.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		A5B42F14C78F5A3CBF4021F215625502 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C5AFBE2219622614EA07FFF3DF1373FF /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		BF7C0DDC82B782FF8C63B5AC7118242E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F58CDCFD1BDE0680E6DB4FE3D61B37BB /* OS X */,
+				A5B42F14C78F5A3CBF4021F215625502 /* iOS */,
+				42000A6BA996EFC0B03423A03E3F9B1A /* watchOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		F58CDCFD1BDE0680E6DB4FE3D61B37BB /* OS X */ = {
+			isa = PBXGroup;
+			children = (
+				F6C558C6C714FF89C5DC507EFA43F76F /* Cocoa.framework */,
+			);
+			name = "OS X";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		01FB2CEAD54E2D0EF52D74F167F1E210 /* ZeroMacUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F63756565357ADE3402BA7AB209A5074 /* Build configuration list for PBXNativeTarget "ZeroMacUITests" */;
+			buildPhases = (
+				68F8110E5CE0422F5D8C6BF4C6BAFB36 /* Sources */,
+				0BC743A6AD4638FDA600A37472F19AE0 /* Frameworks */,
+				AE1E1C13B6679CEACDD0560C542C9E20 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3A3AE16A921434B188A518A071977339 /* PBXTargetDependency */,
+			);
+			name = ZeroMacUITests;
+			productName = ZeroMacUITests;
+			productReference = 5A760BB0566B1CD701E58811BC6057AD /* ZeroMacUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		10A76D0907E2F33B4FAC15820C2FECC5 /* ZeroMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9B70197464665D402B39AF90638D17A2 /* Build configuration list for PBXNativeTarget "ZeroMac" */;
+			buildPhases = (
+				BAF1C3407A4339DB1A586592F2F59B79 /* Sources */,
+				E555A3F5DAB2D1E7A8C65102E61F0332 /* Frameworks */,
+				C4AAE00CB15136AE4A96C0CA43304794 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZeroMac;
+			packageProductDependencies = (
+				29FC62D00B4F4CF4CDC7894B6D455677 /* ZeroPairing */,
+				3EA2F8C73F04C774382B400AD1425760 /* ZeroMail */,
+			);
+			productName = ZeroMac;
+			productReference = DD4779F350B4B820341BAD81AD00F24D /* ZeroMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+		55974521E4C095375442D793A3FC2496 /* ZeroWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5241F0F710D41428CBAF7411D9F70265 /* Build configuration list for PBXNativeTarget "ZeroWatch" */;
+			buildPhases = (
+				3C8EE798EB2E25DDA19531586DD9E0AF /* Sources */,
+				8BA7989DCF399B4B76A5B95275EFB7D3 /* Frameworks */,
+				2988E2AC2B97F734EA011FC34B139980 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZeroWatch;
+			packageProductDependencies = (
+				C53DEEA1F5069BFE1B1A2EDAB7966B13 /* ZeroPairing */,
+				D01C64306A4E1B321A68A549F853AD66 /* ZeroMail */,
+			);
+			productName = ZeroWatch;
+			productReference = F5682C2297519EB63B0592C2852C454B /* ZeroWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		788447F62F7662B8D43B666C79183F76 /* ZeroIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2688361B77A6BBB7B9529CD467B09A73 /* Build configuration list for PBXNativeTarget "ZeroIOS" */;
+			buildPhases = (
+				1195187B99CF954342110846063B2330 /* Sources */,
+				182BCC64E68CBA9FE35A89F53BE5DBBF /* Frameworks */,
+				029F7016DBE7241A46C8829CB86EE86F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ZeroIOS;
+			packageProductDependencies = (
+				DF5C0CEE9291BCC60B69FEDBDE0E93FF /* ZeroPairing */,
+				79D7F8B6925ACF9866694B486B00536A /* ZeroMail */,
+			);
+			productName = ZeroIOS;
+			productReference = 094F1D2B4145684482E0B8F420111282 /* ZeroIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D6DF7A5373EA0B0E57AC6BBACFD73EF7 /* ZeroIOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F0A43D76FD65050DD9FED52E6DD0CD89 /* Build configuration list for PBXNativeTarget "ZeroIOSUITests" */;
+			buildPhases = (
+				CC351DC4301DA7A51DA3A9C425E3C20F /* Sources */,
+				773828684BEAEA22AAC2305B026449A3 /* Frameworks */,
+				11B0C46E704EEFDB7666E1FE276B5782 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B72B6ABBF1AEF80CB56BA74A6F573841 /* PBXTargetDependency */,
+			);
+			name = ZeroIOSUITests;
+			productName = ZeroIOSUITests;
+			productReference = 21B5B9463B401BD442ED675838C82FD3 /* ZeroIOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7C45FC0CBECE03DD6811F67CD7A4BD1C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 22E14A7CD4D89CD10156D1F0AD1B79E7 /* Build configuration list for PBXProject "ZeroMail" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				"zh-Hans",
+				Base,
+			);
+			mainGroup = 5809BA50784ACE059862495311D2FA59;
+			minimizedProjectReferenceProxies = 0;
+			packageReferences = (
+				F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3F93A318932562E5BD8379F1B9237452 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				10A76D0907E2F33B4FAC15820C2FECC5 /* ZeroMac */,
+				01FB2CEAD54E2D0EF52D74F167F1E210 /* ZeroMacUITests */,
+				788447F62F7662B8D43B666C79183F76 /* ZeroIOS */,
+				D6DF7A5373EA0B0E57AC6BBACFD73EF7 /* ZeroIOSUITests */,
+				55974521E4C095375442D793A3FC2496 /* ZeroWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		029F7016DBE7241A46C8829CB86EE86F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F62374E79C557475E9B402849FC04C9F /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		11B0C46E704EEFDB7666E1FE276B5782 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2988E2AC2B97F734EA011FC34B139980 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9ACB7559F465C7AE2D3F7EAA7A638618 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AE1E1C13B6679CEACDD0560C542C9E20 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C4AAE00CB15136AE4A96C0CA43304794 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E8C3ECFD3B65ED6E343AB9C39AFE536 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1195187B99CF954342110846063B2330 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				483BC2DD5511C412AC2554C9CF6780A8 /* MailShortcuts.swift in Sources */,
+				24411A1C83E1D03A1D1BEA4CD3AB76D9 /* ZeroMailApp.swift in Sources */,
+				A8ADF6FEEDAB59E64B9F5273ECBA1221 /* ComposerView.swift in Sources */,
+				CA4A5D398A211389393D3A19DE222F7A /* DeviceSettingsView.swift in Sources */,
+				F172FE6A119FC907C029EB2FF1E11C35 /* HTMLMailView.swift in Sources */,
+				2A658E9F454526DE4F367A98A2AF3CE4 /* MailStore.swift in Sources */,
+				59149E2F8914F48E2C942946831819EA /* MailboxView.swift in Sources */,
+				B04B87A0B24A07EA71C6441FC910D0D1 /* SessionView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3C8EE798EB2E25DDA19531586DD9E0AF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1F551881431C9B7AEF6A4E2AA0BE1A18 /* ComposerView.swift in Sources */,
+				E044432D211FFBA765654904075A1CF3 /* DeviceSettingsView.swift in Sources */,
+				2027D22E535CE5B08AF52632F20C8C01 /* HTMLMailView.swift in Sources */,
+				2E0CD5F35943383F59E20EF1522FD143 /* MailStore.swift in Sources */,
+				C7BE55BFA78E429CC66616DF77F4914D /* MailboxView.swift in Sources */,
+				269D4FAA5F29DFE7AA6D04D1735F4054 /* SessionView.swift in Sources */,
+				464B1FEA847F7CEC8D7901100700C428 /* WatchMailboxView.swift in Sources */,
+				325E9CB2314ADDC5B3132DBC6C4F1C8E /* ZeroWatchApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		68F8110E5CE0422F5D8C6BF4C6BAFB36 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6064CFF10ECCE8B14198968E47BA0EC /* OnboardingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BAF1C3407A4339DB1A586592F2F59B79 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				125F73303833F554943134B50C73FDB9 /* MailShortcuts.swift in Sources */,
+				3DCA1E8FC57902F0E1EB29C59ECC2931 /* ZeroMailApp.swift in Sources */,
+				E21A5879BE35908F75184E7E7A3E021E /* ComposerView.swift in Sources */,
+				3478835EBDF57441978CB91ED12AB2B2 /* DeviceSettingsView.swift in Sources */,
+				C464EF1849A6BCC63587A4B7EB590307 /* HTMLMailView.swift in Sources */,
+				F3281A66BD22AC52BC3C8754947DF341 /* MailStore.swift in Sources */,
+				06E1B2B0BB87E3F662199A53632CC615 /* MailboxView.swift in Sources */,
+				BBF7B34544B926CB6889B9493E6E3A8F /* SessionView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CC351DC4301DA7A51DA3A9C425E3C20F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				125A60A85746D1A55E6E4DBA7225C9A5 /* OnboardingTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		3A3AE16A921434B188A518A071977339 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ZeroMac;
+			target = 10A76D0907E2F33B4FAC15820C2FECC5 /* ZeroMac */;
+			targetProxy = 245560734D12D2D334B38C00CDBE824F /* PBXContainerItemProxy */;
+		};
+		B72B6ABBF1AEF80CB56BA74A6F573841 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ZeroIOS;
+			target = 788447F62F7662B8D43B666C79183F76 /* ZeroIOS */;
+			targetProxy = 2A75E2426BFC301AB3B9F5A2BF49FF64 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2C233DB2E57B11C3AA1F5A50A64FE5DD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.mac.uitests;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = ZeroMac;
+			};
+			name = Release;
+		};
+		3664F8FBD0F67EA05CD5090847FAFF94 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		476605A92E4F5DCA5787B2B732403C1E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.ios.uitests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ZeroIOS;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		4DF86AA4AB769C2676A9C2B47A08228C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Configuration/macOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroMac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.mac;
+				PRODUCT_NAME = ZeroMac;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		500DB6CD9CEE1311340B0741EEA4934C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroIOS-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.ios;
+				PRODUCT_NAME = ZeroIOS;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		57D692C0510A37162AEEECF55AA86D69 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		6CDAC6277B419BC7D365C2347BB49BBF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroWatch-Info.plist";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.watch;
+				PRODUCT_NAME = ZeroWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
+		849DA694EF78A1FFC51442E2D694127D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Configuration/macOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroMac-Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.mac;
+				PRODUCT_NAME = ZeroMac;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A84C7675BA6B51C02375E944A1773BB5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroIOS-Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.ios;
+				PRODUCT_NAME = ZeroIOS;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D01FD3A786CFA73952BA4C98761FAF09 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.ios.uitests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ZeroIOS;
+			};
+			name = Debug;
+		};
+		D23AE2E436ABDA5FDAB1FAA2FDA37231 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Configuration/ZeroWatch-Info.plist";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.watch;
+				PRODUCT_NAME = ZeroWatch;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
+		FF3FE493B53A2CA05869B3E03C5A092D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.zero.mail.mac.uitests;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = ZeroMac;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		22E14A7CD4D89CD10156D1F0AD1B79E7 /* Build configuration list for PBXProject "ZeroMail" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57D692C0510A37162AEEECF55AA86D69 /* Debug */,
+				3664F8FBD0F67EA05CD5090847FAFF94 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2688361B77A6BBB7B9529CD467B09A73 /* Build configuration list for PBXNativeTarget "ZeroIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A84C7675BA6B51C02375E944A1773BB5 /* Release */,
+				500DB6CD9CEE1311340B0741EEA4934C /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5241F0F710D41428CBAF7411D9F70265 /* Build configuration list for PBXNativeTarget "ZeroWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D23AE2E436ABDA5FDAB1FAA2FDA37231 /* Release */,
+				6CDAC6277B419BC7D365C2347BB49BBF /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9B70197464665D402B39AF90638D17A2 /* Build configuration list for PBXNativeTarget "ZeroMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4DF86AA4AB769C2676A9C2B47A08228C /* Release */,
+				849DA694EF78A1FFC51442E2D694127D /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F0A43D76FD65050DD9FED52E6DD0CD89 /* Build configuration list for PBXNativeTarget "ZeroIOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				476605A92E4F5DCA5787B2B732403C1E /* Release */,
+				D01FD3A786CFA73952BA4C98761FAF09 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F63756565357ADE3402BA7AB209A5074 /* Build configuration list for PBXNativeTarget "ZeroMacUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C233DB2E57B11C3AA1F5A50A64FE5DD /* Release */,
+				FF3FE493B53A2CA05869B3E03C5A092D /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		29FC62D00B4F4CF4CDC7894B6D455677 /* ZeroPairing */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroPairing;
+		};
+		3EA2F8C73F04C774382B400AD1425760 /* ZeroMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroMail;
+		};
+		79D7F8B6925ACF9866694B486B00536A /* ZeroMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroMail;
+		};
+		C53DEEA1F5069BFE1B1A2EDAB7966B13 /* ZeroPairing */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroPairing;
+		};
+		D01C64306A4E1B321A68A549F853AD66 /* ZeroMail */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroMail;
+		};
+		DF5C0CEE9291BCC60B69FEDBDE0E93FF /* ZeroPairing */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F34C4A18D0DCC3F86E83293E5E4D18C8 /* XCLocalSwiftPackageReference "." */;
+			productName = ZeroPairing;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7C45FC0CBECE03DD6811F67CD7A4BD1C /* Project object */;
+}

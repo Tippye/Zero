@@ -71,4 +71,4 @@ docker compose --env-file deploy/.env exec api node pairing.mjs approve ABCD-EFG
 
 完整测试命令见 [部署文档](README.zh-CN.md#验证)。`deploy/tests/compose.pairing.yaml` 使用独立合成数据库和测试密钥，不需要 `deploy/.env`。测试覆盖批准、拒绝、过期、并发一次性兑换、密码入口禁用、来源校验、原生 Bearer、设备撤销、重启和恢复。
 
-苹果模块的 `swift test` 可在 Linux 验证网络协议和凭据存储接口；SwiftUI 和真实 Keychain 分支需要 macOS／Xcode。仓库提供 `apple-auth.yml`，在 macOS 上测试，并编译 iOS／iPadOS 和 watchOS 模拟器目标。本认证模块不等于已经完成苹果邮件应用的打包、推送或上架。
+苹果模块的 `swift test` 可在 Linux 验证网络协议和凭据存储接口；SwiftUI 和真实 Keychain 分支需要 macOS／Xcode。原生邮件应用已接入 `native/apple/ZeroMail.xcodeproj`，包含 Mac、iPhone/iPad、Watch targets；`apple-auth.yml` 配置了 macOS 测试和应用构建，尚未在本地 Linux 执行。后续编译、真机、推送和发布事项见 [Apple 迁移说明](../native/apple/MIGRATION.zh-CN.md)。

@@ -1,0 +1,12 @@
+# Layer over compose.pairing.yaml; synthetic mail only, no external mail servers.
+services:
+  api:
+    environment:
+      IMAP_BRIDGE_URL: http://imap-bridge:3033
+    depends_on:
+      imap-bridge: { condition: service_started }
+  imap-bridge:
+    image: node:24-bookworm-slim
+    volumes:
+      - ./apple-mail-fixture.mjs:/fixture.mjs:ro
+    command: [node, /fixture.mjs]
