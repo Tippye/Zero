@@ -980,5 +980,10 @@
     "loadFailed": "Unable to load classification progress.",
     "noMail": "No cached inbox mail to classify.",
     "management": "Classification controls"
+  },
+  "android": {
+    "settings": "Android app settings",
+    "description": "Server address, notifications, and local login data.",
+    "open": "Open app settings"
   }
 }

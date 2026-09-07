@@ -980,5 +980,10 @@
     "loadFailed": "无法加载分类进度。",
     "noMail": "暂无可分类的收件箱缓存邮件。",
     "management": "分类管理"
+  },
+  "android": {
+    "settings": "安卓应用设置",
+    "description": "服务器地址、通知和本机登录数据。",
+    "open": "打开应用设置"
   }
 }

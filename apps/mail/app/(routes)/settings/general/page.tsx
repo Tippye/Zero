@@ -1,3 +1,4 @@
+import { AndroidSettings } from '@/components/settings/android-settings';
 import {
   Form,
   FormControl,
@@ -364,6 +365,7 @@ export default function GeneralPage() {
             <FormField control={form.control} name="animations" render={renderAnimationsField} />
           </div>
         </SettingsCard>
+        <AndroidSettings />
         <SyncSettings settings={syncSettings} />
         <div className="border-t py-4">
           <Button type="submit" disabled={isSaving}>

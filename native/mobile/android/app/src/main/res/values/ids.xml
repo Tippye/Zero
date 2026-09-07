@@ -1,0 +1,6 @@
+<resources>
+    <item type="id" name="server_address" />
+    <item type="id" name="allow_http" />
+    <item type="id" name="connect_server" />
+    <item type="id" name="mail_webview" />
+</resources>
