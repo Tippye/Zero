@@ -68,6 +68,9 @@ export function MailSyncStatus() {
               : m['sync.failed']()}
         </p>
       ))}
+      {data.accounts.flatMap(a => Object.entries(a.folderErrors).map(([folder]) => (
+        <p key={a.accountId + folder} className="mt-1">{a.email}：{m['sync.folderFailed']({ folder })}</p>
+      )))}
       {sync.isError && <p>{m['sync.failed']()}</p>}
     </div>
   );

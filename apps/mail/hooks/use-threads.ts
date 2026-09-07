@@ -1,7 +1,7 @@
 import { backgroundQueueAtom, isThreadInBackgroundQueueAtom } from '@/store/backgroundQueue';
 import { useMailboxScope, useMailboxes, splitMailboxId } from './use-mailboxes';
 import type { IGetThreadResponse } from '../../server/src/lib/driver/types';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { mailReadRetryOptions } from '@/lib/mail-read-retry';
 import { useSearchValue } from '@/hooks/use-search-value';
 import { useTRPC } from '@/providers/query-provider';
@@ -9,7 +9,7 @@ import useSearchLabels from './use-labels-search';
 import { useSession } from '@/lib/auth-client';
 import { useAtom, useAtomValue } from 'jotai';
 import { useParams } from 'react-router';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 
 export const useThreads = () => {
   const accountId = useMailboxScope();
@@ -21,14 +21,15 @@ export const useThreads = () => {
   const isInQueue = useAtomValue(isThreadInBackgroundQueueAtom);
   const trpc = useTRPC();
   const { labels } = useSearchLabels();
+  const cache = useQueryClient();
 
-  const threadsQuery = useInfiniteQuery(
-    trpc.mail.listThreads.infiniteQueryOptions(
+  const options = trpc.mail.listThreads.infiniteQueryOptions(
       {
         accountId,
         q: searchValue.value,
         folder,
         labelIds: labels,
+        workspaceId: session?.user.id,
       },
       {
         // Global hotkeys and the command palette also mount on settings pages.
@@ -39,9 +40,18 @@ export const useThreads = () => {
         staleTime: 60 * 1000 * 1, // 1 minute
         refetchOnMount: true,
         refetchIntervalInBackground: true,
+        // Pagination cursors belong to this session's owner/filter. The server
+        // already persists mail; stale client cursors must not survive upgrades.
+        meta: { persist: false },
       },
-    ),
-  );
+    );
+  const threadsQuery = useInfiniteQuery(options);
+  useEffect(() => {
+    if (threadsQuery.error?.data?.code === 'BAD_REQUEST' &&
+        /restart.*pagination|restart local pagination|filters changed/i.test(threadsQuery.error.message)) {
+      void cache.resetQueries({ queryKey: options.queryKey, exact: true });
+    }
+  }, [threadsQuery.error, cache, options.queryKey]);
 
   // Flatten threads from all pages and sort by receivedOn date (newest first)
 

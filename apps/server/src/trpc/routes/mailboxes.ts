@@ -8,6 +8,7 @@ import {
   storeBody,
   requestSync,
   syncStatus,
+  controlClassification,
   syncSettings,
   saveSyncSettings,
   syncSettingsSchema,
@@ -425,6 +426,8 @@ async function bounded<T>(task: Promise<T>, timeoutMs = 15000): Promise<T> {
   }
 }
 export const mailboxesRouter = t.router({
+  classify: owned.input(z.object({ action: z.enum(['start', 'pause', 'restart']) }))
+    .mutation(({ ctx, input }) => controlClassification(ctx.sessionUser.id, input.action)),
   category: owned.input(single).query(async ({ ctx, input }) => {
     const selected = await target(ctx, input.id);
     return cachedCategory(ctx.sessionUser.id, selected.account.id, selected.id);
@@ -466,6 +469,7 @@ export const unifiedMailRouter = t.router({
   listThreads: owned
     .input(
       scope.extend({
+        workspaceId: z.string().optional(),
         folder: z.string().default('inbox'),
         q: z.string().default(''),
         maxResults: z.number().int().min(1).max(30).default(20),

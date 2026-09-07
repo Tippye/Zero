@@ -34,6 +34,11 @@ ALTER TABLE mail0_cached_mail ADD COLUMN IF NOT EXISTS ai_classified_at timestam
 ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_error text;
 ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_retry_at timestamptz NOT NULL DEFAULT now();
 ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_updated_at timestamptz;
+ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_paused boolean NOT NULL DEFAULT false;
+ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_generation integer NOT NULL DEFAULT 0;
+ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_running_at timestamptz;
+ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS classification_batch_size integer NOT NULL DEFAULT 10;
+ALTER TABLE mail0_sync_accounts ADD COLUMN IF NOT EXISTS folder_errors jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 -- Keep explicit choices independently of the bounded message/body cache.
 CREATE TABLE IF NOT EXISTS mail0_category_feedback (

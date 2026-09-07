@@ -54,8 +54,20 @@ export async function saveSyncSettings(owner: string, settings: typeof defaults)
 export async function requestClassification(owner: string) {
   if (!syncEnabled()) return;
   await withDb(async sql => {
-    await sql`UPDATE mail0_sync_accounts SET classification_retry_at=now(),classification_error=NULL WHERE user_id=${owner}`;
+    await sql`UPDATE mail0_sync_accounts SET classification_retry_at=now(),classification_error=NULL,classification_generation=classification_generation+1,classification_running_at=NULL,classification_batch_size=10 WHERE user_id=${owner}`;
   });
+}
+export async function controlClassification(owner: string, action: 'start' | 'pause' | 'restart') {
+  if (!syncEnabled()) throw new TRPCError({ code: 'PRECONDITION_FAILED' });
+  return withDb(sql => sql.begin(async tx => {
+    // Serialize with the worker's final write so a paused/restarted run cannot commit late.
+    await tx`SELECT account_id FROM mail0_sync_accounts WHERE user_id=${owner} ORDER BY account_id FOR NO KEY UPDATE`;
+    await tx`UPDATE mail0_sync_accounts SET classification_paused=${action === 'pause'},classification_generation=classification_generation+1,classification_running_at=NULL,classification_error=NULL,classification_retry_at=now(),classification_batch_size=10 WHERE user_id=${owner}`;
+    if (action === 'restart') {
+      await tx`UPDATE mail0_cached_mail SET ai_category=NULL,ai_source_hash=NULL,ai_classified_at=NULL WHERE user_id=${owner} AND kind='mail' AND 'inbox'=ANY(folders) AND NOT EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=mail0_cached_mail.user_id AND f.account_id=mail0_cached_mail.account_id AND f.native_id=mail0_cached_mail.native_id)`;
+    }
+    return { success: true };
+  }));
 }
 export async function requestSync(owner: string, accountId?: string) {
   if (!syncEnabled()) return { success: false };
@@ -67,7 +79,7 @@ export async function requestSync(owner: string, accountId?: string) {
 export async function syncStatus(owner: string, accounts: MailboxAccount[]) {
   return withDb(async (sql) => {
     const states =
-      await sql`SELECT s.account_id,s.status,s.error_code,s.last_synced_at,s.classification_error,s.classification_updated_at,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders))::int AS classification_total,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders) AND ((c.ai_source_hash=md5(c.search_text) AND c.ai_category IS NOT NULL) OR EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id)))::int AS classified_count,s.requested_at>s.completed_request_at AS queued,count(c.native_id)::int AS cached_count,coalesce(sum(c.body_bytes),0)::int AS body_bytes FROM mail0_sync_accounts s LEFT JOIN mail0_cached_mail c USING(user_id,account_id) WHERE s.user_id=${owner} GROUP BY s.user_id,s.account_id`;
+      await sql`SELECT s.account_id,s.status,s.error_code,s.last_synced_at,s.classification_error,s.classification_updated_at,s.classification_paused,s.classification_running_at,s.classification_retry_at,s.folder_errors,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders))::int AS classification_total,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders) AND ((c.ai_source_hash=md5(c.search_text) AND c.ai_category IS NOT NULL) OR EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id)))::int AS classified_count,s.requested_at>s.completed_request_at AS queued,count(c.native_id)::int AS cached_count,coalesce(sum(c.body_bytes),0)::int AS body_bytes FROM mail0_sync_accounts s LEFT JOIN mail0_cached_mail c USING(user_id,account_id) WHERE s.user_id=${owner} GROUP BY s.user_id,s.account_id`;
     const [health] =
       await sql`SELECT heartbeat_at>now()-interval '90 seconds' AS online FROM mail0_sync_worker_health WHERE id=1`;
     return {
@@ -86,6 +98,10 @@ export async function syncStatus(owner: string, accounts: MailboxAccount[]) {
           classificationTotal: Number(row?.classification_total || 0),
           classifiedCount: Number(row?.classified_count || 0),
           classificationError: row?.classification_error || null,
+          classificationPaused: !!row?.classification_paused,
+          classificationRunning: !!row?.classification_running_at && !!health?.online && new Date(row.classification_running_at).getTime() > Date.now() - 120000,
+          classificationRetryAt: row?.classification_retry_at ? new Date(row.classification_retry_at).toISOString() : null,
+          folderErrors: (row?.folder_errors || {}) as Record<string, string>,
           classificationUpdatedAt: row?.classification_updated_at ? new Date(row.classification_updated_at).toISOString() : null,
           bodyBytes: Number(row?.body_bytes || 0),
         };
@@ -133,7 +149,7 @@ export async function cachedThreads(
     }
   }
   const accountIds = accounts.map((a) => a.id);
-  const rows = await withDb(async (sql) => {
+  const { rows, warnings } = await withDb(async (sql) => {
     // Local substring search supports common Gmail-style field/read/star filters.
     const tokens = input.q.toLowerCase().match(/(?:[^\s"]+|"[^"]*")+/g) || [];
     const conditions = tokens.map((token) => {
@@ -152,9 +168,12 @@ export async function cachedThreads(
     const providerLabels = input.labelIds.filter(label => !categoryLabels[label]);
     let search = selectedCategories.length ? sql`coalesce((SELECT f.category FROM mail0_category_feedback f WHERE f.user_id=mail0_cached_mail.user_id AND f.account_id=mail0_cached_mail.account_id AND f.native_id=mail0_cached_mail.native_id),CASE WHEN ai_source_hash=md5(search_text) THEN ai_category END)=ANY(${selectedCategories}::text[])` : sql`true`;
     for (const condition of conditions) search = sql`${search} AND ${condition}`;
-    return sql`SELECT account_id,native_id,kind,received_at,preview,draft_preview FROM mail0_cached_mail WHERE user_id=${owner} AND account_id=ANY(${accountIds}::text[]) AND ${input.folder}=ANY(folders) AND tags @> ${providerLabels}::text[] AND ${search}
+    const rows = await sql`SELECT account_id,native_id,kind,received_at,preview,draft_preview FROM mail0_cached_mail WHERE user_id=${owner} AND account_id=ANY(${accountIds}::text[]) AND ${input.folder}=ANY(folders) AND tags @> ${providerLabels}::text[] AND ${search}
       AND (${cursor?.at || null}::timestamptz IS NULL OR (received_at,account_id,kind,native_id)<(${cursor?.at || null}::timestamptz,${cursor?.account || ''},${cursor?.kind || ''},${cursor?.id || ''}))
       ORDER BY received_at DESC,account_id DESC,kind DESC,native_id DESC LIMIT ${input.maxResults + 1}`;
+    const failed = await sql`SELECT account_id,email,CASE WHEN status='error' THEN error_code ELSE folder_errors->>${input.folder} END AS code FROM mail0_sync_accounts WHERE user_id=${owner} AND account_id=ANY(${accountIds}::text[]) AND (status='error' OR folder_errors ? ${input.folder})`;
+    const warnings = failed.map(a => ({ accountId: String(a.account_id), email: String(a.email), code: String(a.code || 'UNAVAILABLE'), message: 'Synchronization unavailable; cached messages are shown.' }));
+    return { rows, warnings };
   });
   const more = rows.length > input.maxResults,
     page = rows.slice(0, input.maxResults),
@@ -175,7 +194,7 @@ export async function cachedThreads(
       accountId: string;
       accountEmail: string;
     })[],
-    warnings: [] as { accountId: string; email: string; message: string; code?: string }[],
+    warnings,
     nextPageToken:
       more && last
         ? JSON.stringify({

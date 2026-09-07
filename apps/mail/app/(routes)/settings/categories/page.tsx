@@ -1,3 +1,4 @@
+import { ClassificationControls } from '@/components/settings/classification-controls';
 import { CategoryLearning } from '@/components/settings/category-learning';
 import {
   DropdownMenu,
@@ -363,6 +364,7 @@ export default function CategoriesSettingsPage() {
       }
     >
       <div className="space-y-4">
+        <ClassificationControls />
         <CategoryLearning />
         <div className="flex justify-end">
           <Button onClick={handleAddCategory} className="flex items-center gap-2">

@@ -27,6 +27,7 @@ import { useOptimisticActions } from '@/hooks/use-optimistic-actions';
 import { useMail, type Config } from '@/components/mail/use-mail';
 import { type ThreadDestination } from '@/lib/thread-actions';
 import { useThread, useThreads } from '@/hooks/use-threads';
+import { useMailSync } from '@/hooks/use-mail-sync';
 import { useSearchValue } from '@/hooks/use-search-value';
 import { EmptyStateIcon } from '../icons/empty-state-svg';
 import { highlightText } from '@/lib/email-utils.client';
@@ -736,6 +737,10 @@ export const MailList = memo(
     const [{ data: mailboxPages, error: mailboxError, refetch, isLoading, isFetching, isFetchingNextPage, hasNextPage }, items, , loadMore] =
       useThreads();
     const trpc = useTRPC();
+    const { synchronize, isPending: syncing } = useMailSync();
+    const refresh = useCallback(async () => {
+      try { await synchronize(); } finally { await refetch(); }
+    }, [synchronize, refetch]);
     const isFetchingMail = useIsFetching({ queryKey: trpc.mail.get.queryKey() }) > 0;
     const itemsRef = useRef(items);
     const parentRef = useRef<HTMLDivElement>(null);
@@ -748,12 +753,12 @@ export const MailList = memo(
     // Add event listener for refresh
     useEffect(() => {
       const handleRefresh = () => {
-        void refetch();
+        void refresh().catch(() => {});
       };
 
       window.addEventListener('refreshMailList', handleRefresh);
       return () => window.removeEventListener('refreshMailList', handleRefresh);
-    }, [refetch]);
+    }, [refresh]);
 
     const handleNavigateToThread = useCallback(
       (threadId: string | null) => {
@@ -965,11 +970,11 @@ export const MailList = memo(
           <>
             <MailCategoryTabs />
             {(mailboxError || mailboxPages?.pages.some(page => page.warnings?.length)) && <div role="alert" className="m-2 rounded border p-3 text-sm">
-              <p>{m['mailboxes.loadFailed']()}</p>
+              <p>{mailboxError ? m['mailboxes.listFailed']() : m['mailboxes.loadFailed']()}</p>
               {Array.from(new Map(mailboxPages?.pages.flatMap(page => page.warnings || []).map(w => [w.accountId, w])).values()).map(w => <p key={w.accountId}>
                 {w.email}：{w.code === 'RATE_LIMIT' ? m['mailboxes.rateLimited']() : w.code === 'TIMEOUT' ? m['mailboxes.timeout']() : w.code === 'DISCONNECTED' ? m['mailboxes.reconnect']() : m['mailboxes.connectionFailed']()}
               </p>)}
-              <button className="underline" onClick={() => void refetch()}>{m['pages.settings.retry']()}</button>
+              <button className="underline disabled:opacity-50" disabled={syncing || isFetching} onClick={() => void refresh().catch(() => {})}>{syncing ? m['sync.syncing']() : m['pages.settings.retry']()}</button>
             </div>}
             {!accounts.length && !isLoading ? <div className="p-8 text-center"><p>{m['imap.emptyTitle']()}</p><a className="underline" href="/settings/connections">{m['pages.settings.connections.addEmail']()}</a></div> : isLoading ? (
               <div className="flex h-32 w-full items-center justify-center">

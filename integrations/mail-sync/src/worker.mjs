@@ -30,7 +30,7 @@ export async function runAccount(sql,config,google,a) {
   const requestedAt=a.request_stamp || a.requested_at;
   await sql`UPDATE mail0_sync_accounts SET status='syncing',error_code=NULL WHERE user_id=${a.user_id} AND account_id=${a.account_id}`;
   try {
-    let checkpoint=a.checkpoint,full=false,partial=false;
+    let checkpoint=a.checkpoint,full=false; const folderErrors={};
     if(a.provider==='google') {
       const [connection]=await sql`SELECT refresh_token FROM mail0_connection WHERE user_id=${a.user_id} AND id=${a.account_id}`;
       if(!connection?.refresh_token) return;
@@ -38,7 +38,7 @@ export async function runAccount(sql,config,google,a) {
     } else {
       const snapshot=await bridge(config,a.user_id,'sync.snapshot',{accountId:a.account_id,limit:settings.max_messages});
       for(const folder of snapshot.folders) {
-        if(folder.error) {partial=true;continue;}
+        if(folder.error) {folderErrors[folder.folder]=folder.error;continue;}
         const rows=folder.threads.map(row=>imapEntry(a.account_id,folder.folder,row));
         await upsert(sql,a,rows);
         const ids=rows.map(r=>r.native_id);
@@ -46,8 +46,8 @@ export async function runAccount(sql,config,google,a) {
       }
     }
     await prune(sql,a,settings);
-    await sql`UPDATE mail0_sync_accounts SET status=${partial?'error':'ready'},error_code=${partial?'UNAVAILABLE':null},last_synced_at=now(),next_sync_at=now()+${settings.interval_seconds}*interval '1 second',completed_request_at=${requestedAt}::text::timestamptz,checkpoint=${checkpoint},last_full_sync_at=CASE WHEN ${full} THEN now() ELSE last_full_sync_at END WHERE user_id=${a.user_id} AND account_id=${a.account_id}`;
-    console.log('Mailbox sync completed',JSON.stringify({provider:a.provider,partial}));
+    await sql`UPDATE mail0_sync_accounts SET status=${Object.keys(folderErrors).length?'partial':'ready'},error_code=NULL,folder_errors=${sql.json(folderErrors)},last_synced_at=now(),next_sync_at=now()+${settings.interval_seconds}*interval '1 second',completed_request_at=${requestedAt}::text::timestamptz,checkpoint=${checkpoint},last_full_sync_at=CASE WHEN ${full} THEN now() ELSE last_full_sync_at END WHERE user_id=${a.user_id} AND account_id=${a.account_id}`;
+    console.log('Mailbox sync completed',JSON.stringify({provider:a.provider,partial:Object.keys(folderErrors).length>0}));
   } catch(e) {
     const code=errorCode(e);
     await prune(sql,a,settings);
@@ -61,15 +61,15 @@ export async function main(config=process.env) {
   // One worker per database, even after accidental duplicate service starts.
   const lock=await sql.reserve();
   if(!(await lock`SELECT pg_try_advisory_lock(20260906,1) AS acquired`)[0].acquired) throw Error('Sync worker already running');
-  const google=new GoogleSync(config),active=new Map();let stopped=false,lastDiscovery=0,classification=null;
+  const google=new GoogleSync(config),active=new Map();let stopped=false,lastDiscovery=0,classification=null,discovery=null;
   process.on('SIGTERM',()=>stopped=true);process.on('SIGINT',()=>stopped=true);
   console.log('Local background mailbox synchronization started');
   while(!stopped) {
     try {
       await sql`INSERT INTO mail0_sync_worker_health VALUES(1,now()) ON CONFLICT(id) DO UPDATE SET heartbeat_at=excluded.heartbeat_at`;
-      if(Date.now()-lastDiscovery>30000) {await discover(sql,config);lastDiscovery=Date.now();}
+      if(!discovery && Date.now()-lastDiscovery>30000) { lastDiscovery=Date.now(); discovery=discover(sql,config).catch(()=>console.warn('Mailbox discovery will retry')).finally(()=>discovery=null); }
       if (!classification) {
-        const [account]=await sql`SELECT user_id,account_id FROM mail0_sync_accounts a WHERE classification_retry_at<=now() AND EXISTS(SELECT 1 FROM mail0_cached_mail c WHERE c.user_id=a.user_id AND c.account_id=a.account_id AND c.kind='mail' AND 'inbox'=ANY(c.folders) AND NOT EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id) AND (c.ai_category IS NULL OR c.ai_source_hash IS DISTINCT FROM md5(c.search_text))) ORDER BY classification_retry_at LIMIT 1`;
+        const [account]=await sql`SELECT user_id,account_id FROM mail0_sync_accounts a WHERE NOT classification_paused AND classification_retry_at<=now() AND EXISTS(SELECT 1 FROM mail0_cached_mail c WHERE c.user_id=a.user_id AND c.account_id=a.account_id AND c.kind='mail' AND 'inbox'=ANY(c.folders) AND NOT EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id) AND (c.ai_category IS NULL OR c.ai_source_hash IS DISTINCT FROM md5(c.search_text))) ORDER BY classification_retry_at LIMIT 1`;
         if(account) classification=classifyAccount(sql,config,account).catch(()=>console.warn('Classification database operation deferred')).finally(()=>classification=null);
       }
       const due=await sql`SELECT *,requested_at::text AS request_stamp FROM mail0_sync_accounts WHERE next_sync_at<=now() OR requested_at>coalesce(completed_request_at,'epoch'::timestamptz) ORDER BY last_synced_at NULLS FIRST,next_sync_at LIMIT 20`;
@@ -81,6 +81,6 @@ export async function main(config=process.env) {
     } catch {console.warn('Sync scheduler will retry after a local service failure');}
     await new Promise(resolve=>setTimeout(resolve,2000));
   }
-  await Promise.allSettled([...active.values(),classification].filter(Boolean));await lock.release();await sql.end();
+  await Promise.allSettled([...active.values(),classification,discovery].filter(Boolean));await lock.release();await sql.end();
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) main().catch(()=>{console.error('Mailbox sync startup failed; check local service configuration');process.exitCode=1;});

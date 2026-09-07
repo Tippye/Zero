@@ -1,3 +1,4 @@
+import { ClassificationControls } from '@/components/settings/classification-controls';
 import {
   Dialog,
   DialogContent,
@@ -111,6 +112,8 @@ export default function LlmSettingsPage() {
     }
   }
   return (
+    <div className="space-y-6">
+    <ClassificationControls />
     <SettingsCard title={m['llm.title']()} description={m['llm.description']()}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="outline" onClick={() => setEditing('new')}>
@@ -259,6 +262,7 @@ export default function LlmSettingsPage() {
         </DialogContent>
       </Dialog>
     </SettingsCard>
+    </div>
   );
 }
 

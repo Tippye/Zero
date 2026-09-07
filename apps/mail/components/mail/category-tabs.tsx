@@ -9,6 +9,7 @@ import { Link, useParams } from 'react-router';
 import { useQueryStates, parseAsString } from 'nuqs';
 import { m } from '@/paraglide/messages';
 import { cn } from '@/lib/utils';
+import { classificationErrorMessage } from '@/components/settings/classification-controls';
 
 const icons = { primary: Inbox, transactions: Receipt, updates: Bell, promotions: Tags, all: Mails };
 export function MailCategoryTabs() {
@@ -32,6 +33,8 @@ export function MailCategoryTabs() {
   const total = sync?.accounts.reduce((n, a) => n + (a.classificationTotal || 0), 0) || 0;
   const completed = sync?.accounts.reduce((n, a) => n + (a.classifiedCount || 0), 0) || 0;
   const failed = sync?.accounts.some(a => a.classificationError);
+  const paused = !!sync?.accounts.length && sync.accounts.every(a => a.classificationPaused);
+  const error = sync?.accounts.find(a => a.classificationError && !a.classificationPaused);
   return (
     <div className="shrink-0 border-b px-2 pt-2" data-mail-categories>
       <div role="tablist" aria-label={m['mailCategories.title']()} className="flex gap-1 overflow-x-auto pb-2">
@@ -55,7 +58,9 @@ export function MailCategoryTabs() {
       </div>
       {provider && !provider.ready ? <p className="text-muted-foreground pb-2 text-xs">{m['mailCategories.configureHint']()} <Link className="text-primary whitespace-nowrap underline" to="/settings/llm">{m['mailCategories.configure']()}</Link></p>
         : sync && !sync.enabled ? <p className="text-muted-foreground pb-2 text-xs">{m['mailCategories.requiresSync']()}</p>
-        : failed ? <p className="text-muted-foreground pb-2 text-xs" role="status">{m['mailCategories.failed']()} <Link className="text-primary whitespace-nowrap underline" to="/settings/llm">{m['mailCategories.configure']()}</Link></p>
+        : paused ? <p className="text-muted-foreground pb-2 text-xs" role="status">{m['classification.paused']()} <Link className="underline" to="/settings/llm">{m['classification.management']()}</Link></p>
+        : sync && !sync.workerOnline ? <p className="text-muted-foreground pb-2 text-xs" role="status">{m['sync.offline']()}</p>
+        : failed && error ? <p className="text-muted-foreground pb-2 text-xs" role="status">{classificationErrorMessage(error.classificationError!)}{' '}{error.classificationRetryAt && m['classification.retry']({ time: new Date(error.classificationRetryAt).toLocaleTimeString() })} <Link className="text-primary whitespace-nowrap underline" to="/settings/llm">{m['classification.management']()}</Link></p>
         : completed < total ? <p className="text-muted-foreground pb-2 text-xs" role="status">{m['mailCategories.progress']({ completed, total })}</p> : null}
     </div>
   );

@@ -892,7 +892,8 @@
     "rateLimited": "邮箱服务商请求限流，请稍等一分钟后重试。",
     "timeout": "邮箱响应超时，请重试。",
     "reconnect": "邮箱授权失败，请前往「设置 → 连接」检查。",
-    "connectionFailed": "邮箱服务暂时不可用，请重试或检查连接。"
+    "connectionFailed": "邮箱服务暂时不可用，请重试或检查连接。",
+    "listFailed": "无法刷新邮件列表，请重试加载。"
   },
   "sync": {
     "title": "同步与本地缓存",
@@ -910,7 +911,8 @@
     "updated": "最近更新：{time}",
     "initial": "首次同步正在准备本地邮箱，期间可以继续使用其他功能。",
     "offline": "同步服务离线，正在显示已缓存邮件",
-    "failed": "同步暂时不可用，已缓存的邮件仍可查看。"
+    "failed": "同步暂时不可用，已缓存的邮件仍可查看。",
+    "folderFailed": "{folder}：同步失败，仍可查看已缓存邮件。"
   },
   "mailCategories": {
     "title": "邮件分类",
@@ -923,7 +925,7 @@
     "configureHint": "配置 AI 模型后自动分类邮件，所有邮件仍可在“所有”中查看。",
     "configure": "LLM 设置",
     "requiresSync": "启用后台邮件同步后即可使用 AI 分类。",
-    "failed": "AI 分类暂时失败，将自动重试；邮件仍可在“所有”中查看。",
+    "failed": "AI 分类失败。",
     "progress": "AI 正在分类：{completed}/{total}，未分类邮件可在“所有”中查看。"
   },
   "mailCategories.moveTo": "移动至分类",
@@ -955,5 +957,28 @@
   "mailAi.showTranslation": "显示翻译后的邮件",
   "mailRead.failed": "邮件读取失败，邮箱可能繁忙，请稍后重试。",
   "mailRead.retry": "重试读取",
-  "mailRead.retrying": "邮箱暂时繁忙，正在等待后自动重试…"
+  "mailRead.retrying": "邮箱暂时繁忙，正在等待后自动重试…",
+  "classification": {
+    "title": "邮件分类",
+    "description": "对所有邮箱中已缓存的收件箱邮件进行 AI 分类，保留手动调整的分类。",
+    "start": "立即分类邮件",
+    "restart": "重新分类邮件",
+    "pause": "暂停分类",
+    "paused": "分类已暂停，继续后将从当前进度开始。",
+    "resume": "继续分类",
+    "running": "正在分类…",
+    "complete": "分类已完成",
+    "waiting": "等待分类服务处理",
+    "retry": "下次重试：{time}",
+    "failed": "无法更新分类任务，请重试。",
+    "invalid": "模型返回的分类格式不正确或结果不完整。",
+    "outputLimit": "模型输出被截断，将减少每批邮件数量后重试。",
+    "auth": "分类模型拒绝了凭据，请检查当前启用的 LLM 配置。",
+    "rateLimit": "服务商限制了请求频率。",
+    "provider": "分类请求失败，请检查当前模型及服务。",
+    "timeout": "分类请求超时。",
+    "loadFailed": "无法加载分类进度。",
+    "noMail": "暂无可分类的收件箱缓存邮件。",
+    "management": "分类管理"
+  }
 }

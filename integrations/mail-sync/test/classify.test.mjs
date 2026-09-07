@@ -61,8 +61,11 @@ test('discards classification when learning is switched off during the model req
   const { classifyAccount } = await import('../src/classify.mjs');
   let enabled = true;
   let written = false;
+  let requested = false;
   const sql = async (strings) => {
     const query = strings.join('?');
+    if (query.includes('SELECT classification_paused')) return [{ classification_paused: false, classification_generation: 0, classification_batch_size: 10 }];
+    if (query.includes('RETURNING account_id')) return [{ account_id: 'mailbox' }];
     if (query.includes('SELECT profiles')) return [];
     if (query.includes('SELECT settings')) return [{ settings: { aiCategoryLearning: enabled } }];
     if (query.includes('SELECT sender')) return [{ sender: 'a@example.invalid', subject: 'Offer', category: 'primary' }];
@@ -71,10 +74,33 @@ test('discards classification when learning is switched off during the model req
   };
   sql.begin = async () => { written = true; };
   await classifyAccount(sql, { OPENAI_API_KEY: 'synthetic', OPENAI_MODEL: 'mini' }, { user_id: 'owner', account_id: 'mailbox' }, async () => {
+    requested = true;
     enabled = false;
     return Response.json({ choices: [{ message: { content: '{"results":[{"id":0,"category":"primary"}]}' } }] });
   });
   assert.equal(written, false);
+  assert.equal(requested, true);
+});
+
+test('JSON mode and modern token limits fall back only for unsupported options', async () => {
+  const seen = [];
+  const result = await classifyMessages({ baseUrl: 'https://example.invalid', apiKey: 'test', model: 'legacy' }, [{}], async (_, options) => {
+    const body = JSON.parse(options.body); seen.push(body);
+    assert.equal(body.stream, false);
+    if (seen.length === 1) return Response.json({ error: { param: 'max_completion_tokens' } }, { status: 400 });
+    if (seen.length === 2) return Response.json({ error: { param: 'response_format' } }, { status: 400 });
+    return Response.json({ choices: [{ message: { content: '{"results":[{"id":0,"category":"primary"}]}' } }] });
+  });
+  assert.equal(seen[0].max_completion_tokens, 4096);
+  assert.equal(seen[1].max_tokens, 4096);
+  assert.equal(seen[2].response_format, undefined);
+  assert.equal(result.length, 1);
+});
+
+test('truncated output is reported separately and null results fail safely', async () => {
+  await assert.rejects(classifyMessages({ baseUrl: 'https://example.invalid', apiKey: 'test', model: 'test' }, [{}], async () =>
+    Response.json({ choices: [{ finish_reason: 'length', message: { content: '{}' } }] })), { code: 'OUTPUT_LIMIT' });
+  for (const value of ['null', '{"results":[null]}']) assert.throws(() => parseCategories(value, 1), { code: 'INVALID_RESPONSE' });
 });
 
 test('Docker classification uses the same host mapping as interactive LLM requests', async () => {

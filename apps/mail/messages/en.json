@@ -892,7 +892,8 @@
     "rateLimited": "The provider is limiting requests. Please wait a minute before retrying.",
     "timeout": "The mailbox took too long to respond. Please retry.",
     "reconnect": "Authorization failed. Check this mailbox in Settings → Connections.",
-    "connectionFailed": "The mailbox service is temporarily unavailable. Please retry or check its connection."
+    "connectionFailed": "The mailbox service is temporarily unavailable. Please retry or check its connection.",
+    "listFailed": "Unable to refresh this mail list. Retry to load it again."
   },
   "sync": {
     "title": "Sync and local cache",
@@ -910,7 +911,8 @@
     "updated": "Last updated: {time}",
     "initial": "The first sync is preparing the local mailbox. You can continue using the app.",
     "offline": "Sync worker is offline; showing saved mail",
-    "failed": "Sync is temporarily unavailable; saved mail is still available."
+    "failed": "Sync is temporarily unavailable; saved mail is still available.",
+    "folderFailed": "{folder}: synchronization failed; cached mail is still available."
   },
   "mailCategories": {
     "title": "Mail categories",
@@ -923,7 +925,7 @@
     "configureHint": "Configure an AI model to classify mail automatically. All mail remains available in All.",
     "configure": "LLM settings",
     "requiresSync": "Enable background mail synchronization to use AI categories.",
-    "failed": "AI classification paused and will retry automatically. Mail is still available in All.",
+    "failed": "AI classification failed.",
     "progress": "AI classification: {completed}/{total}. Unclassified mail is available in All."
   },
   "mailCategories.moveTo": "Move to category",
@@ -955,5 +957,28 @@
   "mailAi.showTranslation": "Show translated email",
   "mailRead.failed": "Could not read the message. The mailbox may be busy; please retry shortly.",
   "mailRead.retry": "Retry reading",
-  "mailRead.retrying": "The mailbox is temporarily unavailable. Waiting before retrying…"
+  "mailRead.retrying": "The mailbox is temporarily unavailable. Waiting before retrying…",
+  "classification": {
+    "title": "Mail classification",
+    "description": "Classify the locally cached inbox across all mailboxes. Manual category choices are preserved.",
+    "start": "Classify mail now",
+    "restart": "Reclassify mail",
+    "pause": "Pause classification",
+    "paused": "Classification paused. Resume to continue.",
+    "resume": "Resume classification",
+    "running": "Classifying…",
+    "complete": "Classification complete",
+    "waiting": "Waiting for the classification worker",
+    "retry": "Retry scheduled for {time}",
+    "failed": "Could not update classification. Please retry.",
+    "invalid": "The model returned an incomplete or invalid classification.",
+    "outputLimit": "The model output was truncated. Retrying with a smaller batch.",
+    "auth": "The classification model rejected the credentials. Check the active LLM configuration.",
+    "rateLimit": "The provider is rate limiting requests.",
+    "provider": "The classification request failed. Check the active model and service.",
+    "timeout": "The classification request timed out.",
+    "loadFailed": "Unable to load classification progress.",
+    "noMail": "No cached inbox mail to classify.",
+    "management": "Classification controls"
+  }
 }

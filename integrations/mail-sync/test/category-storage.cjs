@@ -132,8 +132,33 @@ function evaluate(file, globals) {
       'INVALID_RESPONSE',
     );
 
+    // Pause discards in-flight results, persists across reads, and isolates owners.
+    await cache.controlClassification('owner', 'start');
+    await classifyAccount(sql, config, account, async () => {
+      await cache.controlClassification('owner', 'pause');
+      return request();
+    });
+    assert.equal((await cache.syncStatus('owner', [publicAccount])).accounts[0].classificationPaused, true);
+    assert.equal((await cache.cachedThreads('owner', [publicAccount], input)).threads.length, 0);
+    const beforePause = requests;
+    await classifyAccount(sql, config, account, request);
+    assert.equal(requests, beforePause);
+    assert.equal((await sql`SELECT classification_paused FROM mail0_sync_accounts WHERE user_id='foreign'`)[0].classification_paused, false);
+    await cache.controlClassification('owner', 'start');
+    await classifyAccount(sql, config, account, request);
+    assert.equal((await cache.syncStatus('owner', [publicAccount])).accounts[0].classifiedCount, 1);
+    // Optional folder failures only warn in the affected folder; account failures remain visible.
+    await sql`UPDATE mail0_sync_accounts SET status='partial',folder_errors='{"spam":"TIMEOUT"}'::jsonb WHERE user_id='owner'`;
+    assert.equal((await cache.cachedThreads('owner', [publicAccount], input)).warnings.length, 0);
+    assert.equal((await cache.cachedThreads('owner', [publicAccount], {...input, folder:'spam'})).warnings[0].code, 'TIMEOUT');
+    await sql`UPDATE mail0_sync_accounts SET status='error',error_code='DISCONNECTED' WHERE user_id='owner'`;
+    assert.equal((await cache.cachedThreads('owner', [publicAccount], input)).warnings[0].code, 'DISCONNECTED');
+    await sql`UPDATE mail0_sync_accounts SET status='ready',error_code=NULL,folder_errors='{}'::jsonb WHERE user_id='owner'`;
+
     // Manual choices survive changed content, refreshes, and eviction/reinsertion.
     await cache.moveCachedCategory('owner', 'a', 'same-id', 'primary');
+    await cache.controlClassification('owner', 'restart');
+    assert.equal((await cache.cachedCategory('owner', 'a', 'same-id')).category, 'primary');
     const primary = { ...input, labelIds: ['ZERO_CATEGORY_PRIMARY'] };
     assert.equal((await cache.cachedThreads('owner', [publicAccount], primary)).threads.length, 1);
     assert.equal((await cache.cachedThreads('owner', [publicAccount], input)).threads.length, 0);
