@@ -2,6 +2,12 @@ import { resolveLlm, type LlmIdentity } from './llm-settings';
 import { createOpenAI } from '@ai-sdk/openai';
 import { llmRequestUrl } from './llm-http';
 import { env } from '../env';
+import { createLimitedFetch } from './limited-fetch';
+import { concurrencyLimit } from './capacity';
+
+const limitedFetch = createLimitedFetch(() => concurrencyLimit(
+  (env as typeof env & { AI_REQUEST_CONCURRENCY?: string }).AI_REQUEST_CONCURRENCY, 2,
+));
 
 export function configuredOpenAI(profile: { apiKey: string; baseUrl: string }) {
   return createOpenAI({
@@ -9,7 +15,7 @@ export function configuredOpenAI(profile: { apiKey: string; baseUrl: string }) {
     baseURL: profile.baseUrl,
     compatibility: 'compatible',
     fetch: async (url, options) => {
-      const response = await fetch(
+      const response = await limitedFetch(
         llmRequestUrl(url, env.SELF_HOSTED === 'true' ? env.LLM_LOOPBACK_HOST : undefined),
         {
           ...options,

@@ -9,24 +9,27 @@ class NotificationFeed {
     if (this.running) return;
     this.running = true;
     try {
-      const head = await this.fetchFeed();
-      if (this.identity !== head.owner) {
-        this.identity = head.owner;
+      let stored = this.identity ? await this.load(this.identity) : null;
+      let page = await this.fetchFeed(stored?.cursor);
+      if (this.identity !== page.owner) {
+        this.identity = page.owner;
+        stored = await this.load(page.owner);
+        if (stored) {
+          page = await this.fetchFeed(stored.cursor);
+          if (page.owner !== this.identity) return;
+        }
       }
-      const stored = await this.load(head.owner);
       if (!stored) {
-        await this.save(head.owner, { cursor: head.cursor, seen: [] });
+        await this.save(page.owner, { cursor: page.cursor, seen: [] });
         return;
       }
-      const page = await this.fetchFeed(stored.cursor);
-      if (page.owner !== head.owner) return;
       const seen = new Set(stored.seen || []);
       for (const event of page.events) {
         if (seen.has(event.id)) continue;
         await this.show(event);
         seen.add(event.id);
       }
-      await this.save(head.owner, { cursor: page.cursor, seen: [...seen].slice(-100) });
+      await this.save(page.owner, { cursor: page.cursor, seen: [...seen].slice(-100) });
     } finally {
       this.running = false;
     }

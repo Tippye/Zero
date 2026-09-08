@@ -17,8 +17,22 @@ import { openai } from '../../../lib/openai';
 import { TRPCError } from '@trpc/server';
 import { generateText } from 'ai';
 import { z } from 'zod';
+import { createCapacity, concurrencyLimit } from '../../../lib/capacity';
+import { env } from '../../../env';
 
-export const read = privateProcedure.input(readerInput).mutation(async ({ ctx, input }) => {
+const readerCapacity = createCapacity();
+const readerProcedure = privateProcedure.use(async ({ ctx, next }) => {
+  const release = readerCapacity.acquire(concurrencyLimit(
+    (env as typeof env & { AI_REQUEST_CONCURRENCY?: string }).AI_REQUEST_CONCURRENCY, 2,
+  ));
+  if (!release) {
+    ctx.c.header('Retry-After', '5');
+    throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'AI_BUSY' });
+  }
+  try { return await next(); } finally { release(); }
+});
+
+export const read = readerProcedure.input(readerInput).mutation(async ({ ctx, input }) => {
   // The unified reader checks mailbox ownership and supports both IMAP and OAuth.
   const thread = await unifiedMailRouter.createCaller(ctx).get({ id: input.threadId });
   const message = thread.messages.find((message) => message.id === input.messageId);

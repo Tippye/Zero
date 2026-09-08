@@ -103,7 +103,8 @@ export function getSocialProviders(env: Record<string, string>) {
             `Required provider "${provider.id}" is not configured properly. Check your environment variables.`,
           );
         } else {
-          console.warn(`Provider "${provider.id}" is not configured properly. Skipping.`);
+          // Missing optional OAuth configuration is normal for paired IMAP users.
+          // Do not emit two warnings (and retained console contexts) on every poll.
           return null;
         }
       })

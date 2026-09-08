@@ -18,6 +18,17 @@ x-api-env: &api-env
   LLM_LOOPBACK_HOST: ${LLM_LOOPBACK_HOST-host.docker.internal}
   OPENAI_MODEL: ${OPENAI_MODEL:-}
   OPENAI_MINI_MODEL: ${OPENAI_MINI_MODEL:-}
+  AI_REQUEST_CONCURRENCY: ${AI_REQUEST_CONCURRENCY:-2}
+  MAIL_READ_CONCURRENCY: ${MAIL_READ_CONCURRENCY:-4}
+  API_MEMORY_RESTART_MB: ${API_MEMORY_RESTART_MB:-768}
+  AI_CLASSIFY_CONCURRENCY: ${AI_CLASSIFY_CONCURRENCY:-1}
+  AI_CLASSIFY_BATCH_SIZE: ${AI_CLASSIFY_BATCH_SIZE:-10}
+  AI_CLASSIFY_INTERVAL_SECONDS: ${AI_CLASSIFY_INTERVAL_SECONDS:-10}
+  AI_CLASSIFY_TIMEOUT_SECONDS: ${AI_CLASSIFY_TIMEOUT_SECONDS:-60}
+  AI_RECENT_DAYS: ${AI_RECENT_DAYS:-7}
+  AI_HISTORY_EVERY_BATCHES: ${AI_HISTORY_EVERY_BATCHES:-5}
+  SYNC_ACCOUNT_CONCURRENCY: ${SYNC_ACCOUNT_CONCURRENCY:-1}
+  SYNC_MESSAGE_CONCURRENCY: ${SYNC_MESSAGE_CONCURRENCY:-2}
 services:
   db:
     image: postgres:17-bookworm
@@ -52,6 +63,9 @@ services:
     depends_on:
       redis: { condition: service_healthy }
   imap-bridge:
+    mem_limit: ${IMAP_BRIDGE_MEMORY_LIMIT:-512m}
+    memswap_limit: ${IMAP_BRIDGE_MEMORY_LIMIT:-512m}
+    cpus: ${IMAP_BRIDGE_CPU_LIMIT:-0.75}
     build: integrations/imap-bridge
     init: true
     restart: unless-stopped
@@ -88,6 +102,9 @@ services:
       db: { condition: service_healthy }
     restart: 'no'
   api:
+    mem_limit: ${API_MEMORY_LIMIT:-2g}
+    memswap_limit: ${API_MEMORY_LIMIT:-2g}
+    cpus: ${API_CPU_LIMIT:-2.0}
     image: zero-api:local
     build: { context: ., dockerfile: deploy/Dockerfile, target: api }
     init: true
@@ -104,13 +121,16 @@ services:
           CMD,
           node,
           -e,
-          "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:8787/health',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 3
       start_period: 30s
   mail-sync:
+    mem_limit: ${MAIL_SYNC_MEMORY_LIMIT:-512m}
+    memswap_limit: ${MAIL_SYNC_MEMORY_LIMIT:-512m}
+    cpus: ${MAIL_SYNC_CPU_LIMIT:-0.5}
     build: { context: ., dockerfile: deploy/Dockerfile, target: sync }
     init: true
     restart: unless-stopped
@@ -126,6 +146,22 @@ services:
           -e,
           "import postgres from 'postgres';const sql=postgres(process.env.DATABASE_URL);const [r]=await sql`SELECT heartbeat_at>now()-interval '60 seconds' AS ok FROM mail0_sync_worker_health WHERE id=1`;await sql.end();process.exit(r?.ok?0:1)",
         ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  mail-classifier:
+    build: { context: ., dockerfile: deploy/Dockerfile, target: sync }
+    command: [node, --max-old-space-size=192, src/classifier.mjs]
+    init: true
+    restart: unless-stopped
+    mem_limit: ${AI_MEMORY_LIMIT:-256m}
+    memswap_limit: ${AI_MEMORY_LIMIT:-256m}
+    cpus: ${AI_CPU_LIMIT:-0.5}
+    environment: *api-env
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, src/classifier-health.mjs]
       interval: 30s
       timeout: 5s
       retries: 3

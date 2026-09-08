@@ -985,5 +985,24 @@
     "settings": "安卓应用设置",
     "description": "服务器地址、通知和本机登录数据。",
     "open": "打开应用设置"
+  },
+  "classificationLimits": {
+    "title": "分类处理上限",
+    "description": "保存当前工作区的处理上限。新批次使用新设置，正在处理的批次会正常完成。",
+    "concurrency": "同时分类的邮箱数",
+    "batchSize": "每批最多处理的邮件数",
+    "interval": "批次之间的最短间隔（秒）",
+    "timeout": "单批请求超时（秒）",
+    "recentDays": "优先处理最近多少天的邮件",
+    "historyEvery": "每多少批处理一次最旧邮件",
+    "summary": "最多同时有 {count} 封邮件进入分类批次。",
+    "priorityHint": "优先处理近期邮件，并定期处理最旧邮件，避免旧邮件一直等待。设置为 1 时，始终从最旧邮件开始。",
+    "save": "保存分类上限",
+    "saving": "正在保存…",
+    "saved": "分类上限已保存，新批次将使用新设置。",
+    "saveFailed": "分类上限保存失败，修改内容已保留，请重试。",
+    "loadFailed": "无法加载分类上限。",
+    "invalid": "请在标注范围内填写整数。",
+    "defaults": "使用默认值"
   }
 }

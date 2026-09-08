@@ -3,6 +3,8 @@ WORKDIR /app
 COPY deploy/runtime/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY deploy/runtime/ ./
+# Inspector remains inside the synthetic Docker network; no host port is published.
+RUN sed -i 's/modules: true,/modules: true, inspectorPort: 9229,/' server.mjs
 COPY apps/server/src/db/migrations /app/migrations
 COPY integrations/mail-sync/schema.sql /app/sync-schema.sql
 RUN mkdir -p /data && chown node:node /data

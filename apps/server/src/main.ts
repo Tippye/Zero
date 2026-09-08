@@ -767,6 +767,21 @@ const api = new Hono<HonoContext>()
 
 const app = new Hono<HonoContext>()
   .use(contextStorage())
+  .use('*', async (c, next) => {
+    try {
+      await next();
+    } finally {
+      // Auth used to abandon one Postgres pool on every poll, including failures.
+      const resource = c.get('authDb');
+      c.set('authDb', undefined);
+      if (resource) await resource.conn.end({ timeout: 5 });
+      const traceId = c.get('traceId');
+      if (traceId) {
+        const { TraceContext } = await import('./lib/trace-context');
+        TraceContext.discardTrace(traceId);
+      }
+    }
+  })
   .use(
     '*',
     cors({

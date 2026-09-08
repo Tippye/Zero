@@ -955,5 +955,24 @@
   "mailAi.showTranslation": "顯示翻譯後的郵件",
   "mailRead.failed": "郵件讀取失敗，信箱可能忙碌，請稍後重試。",
   "mailRead.retry": "重試讀取",
-  "mailRead.retrying": "信箱暫時忙碌，正在等待後自動重試…"
+  "mailRead.retrying": "信箱暫時忙碌，正在等待後自動重試…",
+  "classificationLimits": {
+    "title": "分類處理上限",
+    "description": "儲存目前工作區的處理上限。新批次使用新設定，正在處理的批次會正常完成。",
+    "concurrency": "同時分類的信箱數",
+    "batchSize": "每批最多處理的郵件數",
+    "interval": "批次之間的最短間隔（秒）",
+    "timeout": "單批請求逾時（秒）",
+    "recentDays": "優先處理最近多少天的郵件",
+    "historyEvery": "每多少批處理一次最舊郵件",
+    "summary": "最多同時有 {count} 封郵件進入分類批次。",
+    "priorityHint": "優先處理近期郵件，並定期處理最舊郵件，避免舊郵件一直等待。設定為 1 時，一律從最舊郵件開始。",
+    "save": "儲存分類上限",
+    "saving": "正在儲存…",
+    "saved": "分類上限已儲存，新批次將使用新設定。",
+    "saveFailed": "分類上限儲存失敗，修改內容已保留，請重試。",
+    "loadFailed": "無法載入分類上限。",
+    "invalid": "請在標示範圍內填寫整數。",
+    "defaults": "使用預設值"
+  }
 }

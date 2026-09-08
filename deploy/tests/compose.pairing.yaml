@@ -38,6 +38,7 @@ services:
       db: { condition: service_healthy }
   api:
     image: zero-pairing-runtime:test
+    restart: unless-stopped
     environment: *env
     volumes:
       - ${ZERO_PAIRING_WORKER:-/tmp/zero-pairing-worker}:/app/worker:ro

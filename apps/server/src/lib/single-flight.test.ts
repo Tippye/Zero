@@ -2,6 +2,17 @@ import { createSingleFlight } from './single-flight';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
+test('capacity counts distinct emails and allows duplicates to join the active read', async () => {
+  const read = createSingleFlight<string>({ limit: () => 1, full: () => new Error('busy') });
+  let release!: (value: string) => void;
+  const first = read('a', () => new Promise<string>(resolve => { release = resolve; }));
+  const duplicate = read('a', async () => 'must not execute');
+  await assert.rejects(read('b', async () => 'b'), /busy/);
+  release('a');
+  assert.deepEqual(await Promise.all([first, duplicate]), ['a', 'a']);
+  assert.equal(await read('b', async () => 'b'), 'b');
+});
+
 test('simultaneous readers share one request, including attachment and translation consumers', async () => {
   const read = createSingleFlight<string>();
   let calls = 0,

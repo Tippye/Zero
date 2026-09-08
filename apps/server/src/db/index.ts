@@ -4,8 +4,8 @@ import * as schema from './schema';
 
 const createDrizzle = (conn: Sql) => drizzle(conn, { schema });
 
-export const createDb = (url: string) => {
-  const conn = postgres(url);
+export const createDb = (url: string, options: postgres.Options<{}> = {}) => {
+  const conn = postgres(url, options);
   const db = createDrizzle(conn);
   return { db, conn };
 };

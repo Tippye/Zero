@@ -1,6 +1,16 @@
 import { NotificationFeed } from '../src/notifications.cjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
+test('unchanged account needs only one request per poll after initialization', async () => {
+  const state = {};
+  const cursors = [];
+  const feed = new NotificationFeed({
+    fetchFeed: async after => { cursors.push(after); return { owner: 'one', cursor: '10', events: [] }; },
+    show: async () => {}, load: async owner => state[owner], save: async (owner, value) => { state[owner] = value; },
+  });
+  await feed.poll(); await feed.poll(); await feed.poll();
+  assert.deepEqual(cursors, [undefined, '10', '10']);
+});
 test('first connection skips history and subsequent pages notify only once', async () => {
   const state = {},
     shown = [];

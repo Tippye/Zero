@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyMessages, parseCategories } from '../src/classify.mjs';
+test('oversized error responses cannot bypass the classification response limit', async () => {
+  const response = new Response('x'.repeat(300 * 1024), { status: 400 });
+  await assert.rejects(classifyMessages({ baseUrl: 'https://synthetic.invalid', apiKey: 'test', model: 'test' }, [{}], async () => response), { code: 'INVALID_RESPONSE' });
+});
 test('classification only accepts exact, unique, bounded IDs and known categories',()=>{
   assert.equal(parseCategories('```json\n{"results":[{"id":0,"category":"primary"}]}\n```',1)[0].category,'primary');
   for(const data of [{results:[]},{results:[{id:1,category:'primary'}]},{results:[{id:0,category:'all'}]},{results:[{id:0,category:'primary'},{id:0,category:'updates'}]}]) assert.throws(()=>parseCategories(JSON.stringify(data),1));

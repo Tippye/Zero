@@ -27,6 +27,7 @@ import { env } from '../env';
 import { getContext } from 'hono/context-storage';
 import { selfHostedOrigin } from './selfhost';
 import { Dub } from 'dub';
+import type { HonoContext } from '../ctx';
 
 const scheduleCampaign = (userInfo: { address: string; name: string }) =>
   Effect.gen(function* () {
@@ -161,8 +162,6 @@ const connectionHandlerHook = async (account: Account) => {
 };
 
 export const createAuth = () => {
-  const dub = new Dub();
-
   return betterAuth({
     plugins: [
       ...(env.SELF_HOSTED === 'true' && env.SELF_HOSTED_AUTH !== 'required' ? [anonymous({
@@ -170,7 +169,7 @@ export const createAuth = () => {
         generateName: () => '本机邮箱用户',
         disableDeleteAnonymousUser: true,
       })] : []),
-      ...(env.SELF_HOSTED === 'true' ? [] : [dubAnalytics({ dubClient: dub })]),
+      ...(env.SELF_HOSTED === 'true' ? [] : [dubAnalytics({ dubClient: new Dub() })]),
       mcp({
         loginPage: env.VITE_PUBLIC_APP_URL + '/login',
       }),
@@ -339,8 +338,16 @@ const createAuthConfig = () => {
   if (env.SELF_HOSTED_AUTH === 'required') {
     try { externalOrigin = selfHostedOrigin(getContext().req.raw, env); } catch { /* Outside request context. */ }
   }
-  const { db } = createDb(env.HYPERDRIVE.connectionString);
+  // Reuse only within this request; Workers sockets must not cross request contexts.
+  const context = getContext<HonoContext>();
+  let resource = context.get('authDb');
+  if (!resource) {
+    resource = createDb(env.HYPERDRIVE.connectionString, { max: 1, idle_timeout: 5, connect_timeout: 5 });
+    context.set('authDb', resource);
+  }
+  const { db } = resource;
   return {
+    ...(env.SELF_HOSTED === 'true' ? { telemetry: { enabled: false } } : {}),
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(db, { provider: 'pg' }),
     secondaryStorage: env.SELF_HOSTED_AUTH === 'required' ? undefined : {

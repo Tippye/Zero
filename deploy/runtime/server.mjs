@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { Miniflare } from 'miniflare';
 import { resolve } from 'node:path';
+import { startWatchdog, workerResidentBytes } from './watchdog.mjs';
 
 const spec = JSON.parse(await readFile(new URL('./bindings.json', import.meta.url)));
 const names = [
@@ -22,6 +23,14 @@ const names = [
   'OPENAI_MODEL',
   'OPENAI_MINI_MODEL',
   'OPENAI_EMBEDDING_MODEL',
+  'AI_REQUEST_CONCURRENCY',
+  'MAIL_READ_CONCURRENCY',
+  'AI_CLASSIFY_CONCURRENCY',
+  'AI_CLASSIFY_BATCH_SIZE',
+  'AI_CLASSIFY_INTERVAL_SECONDS',
+  'AI_CLASSIFY_TIMEOUT_SECONDS',
+  'AI_RECENT_DAYS',
+  'AI_HISTORY_EVERY_BATCHES',
 ];
 const bindings = Object.fromEntries(names.map((name) => [name, process.env[name] || '']));
 for (const name of [
@@ -52,6 +61,9 @@ Object.assign(bindings, {
   DROP_AGENT_TABLES: 'false',
 });
 const data = process.env.DATA_DIR || '/data';
+const recycleMb = Number(process.env.API_MEMORY_RESTART_MB || 768);
+if (!Number.isInteger(recycleMb) || recycleMb < 256 || recycleMb > 65536)
+  throw new Error('API_MEMORY_RESTART_MB must be an integer between 256 and 65536');
 const mf = new Miniflare({
   name: 'zero',
   host: '0.0.0.0',
@@ -83,11 +95,21 @@ const mf = new Miniflare({
 });
 await mf.ready;
 console.log('Zero self-hosted API ready');
+const stopWatchdog = startWatchdog({
+  url: `http://127.0.0.1:${Number(process.env.PORT || 8787)}/health`,
+  memoryUsage: process.platform === 'linux' ? workerResidentBytes : undefined,
+  maxResidentBytes: recycleMb * 1024 * 1024,
+  fail: (reason, bytes) => {
+    console.error('API worker restart required', JSON.stringify({ reason, residentMiB: bytes ? Math.round(bytes / 1024 / 1024) : undefined }));
+    process.exit(1);
+  },
+});
 let stopping = false;
 for (const signal of ['SIGTERM', 'SIGINT'])
   process.on(signal, async () => {
     if (stopping) return;
     stopping = true;
+    stopWatchdog();
     await mf.dispose();
     process.exit(0);
   });

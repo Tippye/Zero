@@ -120,6 +120,10 @@ class TraceContextClass {
         return this.traces.get(traceId);
     }
 
+    discardTrace(traceId: string): void {
+        this.traces.delete(traceId);
+    }
+
     addSpan(traceId: string, span: Omit<TraceSpan, 'id' | 'startTime' | 'status'>): TraceSpan {
         const trace = this.traces.get(traceId);
         if (!trace) {

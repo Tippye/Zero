@@ -985,5 +985,24 @@
     "settings": "Android app settings",
     "description": "Server address, notifications, and local login data.",
     "open": "Open app settings"
+  },
+  "classificationLimits": {
+    "title": "Classification limits",
+    "description": "Save limits for this workspace. Changes apply to new batches; running batches finish normally.",
+    "concurrency": "Mailboxes classified at the same time",
+    "batchSize": "Maximum emails per batch",
+    "interval": "Minimum interval between batches (seconds)",
+    "timeout": "Batch request timeout (seconds)",
+    "recentDays": "Prioritize emails from the last (days)",
+    "historyEvery": "Process oldest emails every (batches)",
+    "summary": "At most {count} emails can be in classification batches at the same time.",
+    "priorityHint": "Recent mail takes priority. Periodic oldest-first batches keep older mail moving; a value of 1 always processes the oldest mail first.",
+    "save": "Save classification limits",
+    "saving": "Saving…",
+    "saved": "Classification limits saved. New batches will use these settings.",
+    "saveFailed": "Could not save classification limits. Your changes are still available to retry.",
+    "loadFailed": "Could not load classification limits.",
+    "invalid": "Enter whole numbers within the ranges shown.",
+    "defaults": "Use default values"
   }
 }

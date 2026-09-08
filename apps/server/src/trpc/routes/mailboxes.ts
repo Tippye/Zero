@@ -28,6 +28,9 @@ import { createDraftData, serializedFileSchema } from '../../lib/schemas';
 import { mailboxId, splitMailboxId } from '../../lib/mailboxes/ids';
 import { getZeroDB, getZeroAgent } from '../../lib/server-utils';
 import { createSingleFlight } from '../../lib/single-flight';
+import { concurrencyLimit } from '../../lib/capacity';
+import { env } from '../../env';
+import { classificationSettings, saveClassificationSettings, classificationSettingsSchema } from '../../lib/mailboxes/classification-settings';
 import { draftsRouter as legacyDrafts } from './drafts';
 import { mailRouter as legacyMail } from './mail';
 import type { TrpcContext } from '../trpc';
@@ -115,7 +118,10 @@ function wrapThread(a: MailboxAccount, thread: IGetThreadResponse): IGetThreadRe
     latest: thread.latest ? wrap(thread.latest) : undefined,
   };
 }
-const mailReads = createSingleFlight<IGetThreadResponse>();
+const mailReads = createSingleFlight<IGetThreadResponse>({
+  limit: () => concurrencyLimit((env as typeof env & { MAIL_READ_CONCURRENCY?: string }).MAIL_READ_CONCURRENCY, 4),
+  full: () => new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'MAIL_READ_BUSY' }),
+});
 async function getMail(ctx: Ctx, encoded: string): Promise<IGetThreadResponse> {
   try {
     const { account: a, id } = await target(ctx, encoded);
@@ -454,6 +460,9 @@ export const mailboxesRouter = t.router({
     if (input?.accountId) await ownedMailbox(ctx.sessionUser.id, input.accountId);
     return requestSync(ctx.sessionUser.id, input?.accountId);
   }),
+  classificationSettings: owned.query(({ ctx }) => classificationSettings(ctx.sessionUser.id)),
+  saveClassificationSettings: owned.input(classificationSettingsSchema)
+    .mutation(({ ctx, input }) => saveClassificationSettings(ctx.sessionUser.id, input)),
   syncSettings: owned.query(({ ctx }) => syncSettings(ctx.sessionUser.id)),
   saveSyncSettings: owned
     .input(syncSettingsSchema)

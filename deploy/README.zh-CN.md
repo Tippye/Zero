@@ -99,7 +99,7 @@ docker compose --env-file deploy/.env -f compose.yaml -f deploy/compose.https.ya
 
 自托管环境也支持直接填写 `http://host.docker.internal:20128/v1` 或局域网 HTTP 地址，例如 `http://192.168.1.20:8080/v1`。局域网范围包括 `10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` 和 IPv6 ULA；这些地址保持原样连接。
 
-若模型服务实际运行在 API 容器内，可在 `deploy/.env` 中设置空的 `LLM_LOOPBACK_HOST=` 关闭映射。Linux Docker 若无法解析 `host.docker.internal`，可为 `api` 和 `mail-sync` 增加 `extra_hosts: ['host.docker.internal:host-gateway']`。远程部署的 Zero 需要可从服务器访问的模型地址；这里的 localhost 不指向远程使用者的电脑。
+若模型服务实际运行在 API 容器内，可在 `deploy/.env` 中设置空的 `LLM_LOOPBACK_HOST=` 关闭映射。Linux Docker 若无法解析 `host.docker.internal`，可为 `api`、`mail-sync` 和 `mail-classifier` 增加 `extra_hosts: ['host.docker.internal:host-gateway']`。远程部署的 Zero 需要可从服务器访问的模型地址；这里的 localhost 不指向远程使用者的电脑。
 
 ## 通知
 
@@ -122,3 +122,35 @@ npm test --prefix native/desktop
 ```
 
 HTTPS 测试用进程级 NODE_EXTRA_CA_CERTS 信任测试证书，不关闭 TLS 验证或修改全局系统信任。最终验收结果见 VALIDATION.zh-CN.md。
+
+## 资源上限与普通邮件优先
+
+日常修改分类上限，请打开 **设置 → LLM 服务商**（或 **设置 → 视图**）中的“分类处理上限”。可修改同时分类的邮箱数、每批邮件数、批次间隔、请求超时、近期邮件天数及历史邮件处理频率，点击“保存分类上限”后持久保存在当前工作区。后台在新批次开始时读取设置，无需重启或重新配对；已经开始的批次正常完成，调低并发后等待在途批次释放名额。“使用默认值”会填入部署默认值，仍需点击保存。
+
+未在页面保存时，分类使用 `deploy/.env` 的默认值；页面保存值优先于对应的 `AI_CLASSIFY_*`、`AI_RECENT_DAYS`、`AI_HISTORY_EVERY_BATCHES` 环境变量。容器 CPU/内存硬限额仍由部署配置管理：修改后沿用原项目名及 Compose 文件执行 `docker compose ... up -d --build`。以下是默认值；CPU 的 `0.5` 表示最多使用半个逻辑核心的计算时间。
+
+| 配置项 | 默认值 | 作用 |
+| --- | --- | --- |
+| `API_MEMORY_LIMIT` / `API_CPU_LIMIT` | `2g` / `2.0` | API 容器硬上限 |
+| `API_MEMORY_RESTART_MB` | `768` | workerd RSS 连续三次超过此值时回收重启，须低于容器上限并留出启动余量 |
+| `MAIL_SYNC_MEMORY_LIMIT` / `MAIL_SYNC_CPU_LIMIT` | `512m` / `0.5` | 邮件同步容器硬上限 |
+| `IMAP_BRIDGE_MEMORY_LIMIT` / `IMAP_BRIDGE_CPU_LIMIT` | `512m` / `0.75` | 邮箱桥接容器硬上限 |
+| `AI_MEMORY_LIMIT` / `AI_CPU_LIMIT` | `256m` / `0.5` | 独立后台分类容器硬上限 |
+| `AI_REQUEST_CONCURRENCY` | `2` | API 内同时进行的模型 HTTP 请求上限；AI 阅读任务也受此并发上限约束 |
+| `MAIL_READ_CONCURRENCY` | `4` | API 内同时读取的不同邮件数量，相同邮件的并发读取合并 |
+| `SYNC_ACCOUNT_CONCURRENCY` | `1` | 同时同步的邮箱数（1–4） |
+| `SYNC_MESSAGE_CONCURRENCY` | `2` | 每个 OAuth 邮箱同时获取的邮件元数据数量（1–8） |
+| `AI_CLASSIFY_CONCURRENCY` | `1` | 工作区同时分类的邮箱数默认值（1–4），可在设置中覆盖 |
+| `AI_CLASSIFY_BATCH_SIZE` | `10` | 单批邮件数上限默认值（1–50），输出错误后仍可自动缩小 |
+| `AI_CLASSIFY_INTERVAL_SECONDS` | `10` | 同一邮箱成功分类后到下一批的最短间隔（2–3600 秒） |
+| `AI_CLASSIFY_TIMEOUT_SECONDS` | `60` | 单批模型请求总时限（5–120 秒，含兼容参数重试） |
+| `AI_RECENT_DAYS` | `7` | 优先选择含近期待分类邮件的邮箱 |
+| `AI_HISTORY_EVERY_BATCHES` | `5` | 每 N 批让等待较久的邮箱处理最旧邮件（1–100），防止历史邮件饥饿 |
+
+分类与同步使用不同容器、数据库连接池及单实例锁，分类失败不占用同步槽位。每个工作区默认分类最多有 `1 × 10 = 10` 封邮件处于模型批次中，设置页显示该乘积；分类进程跨工作区最多同时处理 4 个邮箱。OAuth 同步最多有 `1 × 2 = 2` 个元数据请求同时进行。IMAP 同步使用顺序执行的有界信封窗口，不批量获取正文。用户主动要求的同步优先于定时同步；分类任务在数据库中等待，进程中不堆积无界任务队列。
+
+交互式 AI 和读信达到并发上限时返回 429，而不是无限等待。读信沿用有界退避重试；AI 请求限制持续到响应体结束、取消或超时，响应体最多 1 MiB。分类成功和错误响应均限制在 256 KiB。资源限额适用于 Zero 进程；外部或宿主机上的模型推理服务需在其自身配置 CPU/GPU/显存限额。
+
+容器内存与 swap 总限额相同，防止后台任务通过大量换页拖慢其他服务。资源上限不等于预留：宿主机上其他应用仍需留有余量。API 的 workerd 子进程连续三次健康探测失败时，父进程退出，由 Docker 重启策略恢复，避免外层容器存活而接口持续 502。监控同时读取 workerd 子进程的 RSS，而不是 Node 父进程的堆；连续三次超过 `API_MEMORY_RESTART_MB` 时主动回收。重启期间可能短暂中断请求，它是残余运行时保留的保护措施，不是无中断切换或“泄漏已完全消除”的保证。
+
+分类/同步状态在活跃时每 5 秒刷新，空闲或请求错误后每 30 秒刷新，隐藏页面不持续轮询。Windows 客户端通知仍每 15 秒检查；新版客户端在账号不变时每轮只发一次增量请求（旧客户端需要更新安装包才会减少这一请求）。幂等与并发合并不替代轮询节流，也不能修复连接池或请求上下文泄漏。

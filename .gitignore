@@ -71,6 +71,7 @@ tools.json
 /native/desktop/release/
 
 /native/desktop/release-windows/
+/native/desktop/release-resources/
 
 # Source assets used by the Windows installer (not generated build output)
 !/native/desktop/build/

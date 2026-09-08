@@ -54,7 +54,7 @@ export async function saveSyncSettings(owner: string, settings: typeof defaults)
 export async function requestClassification(owner: string) {
   if (!syncEnabled()) return;
   await withDb(async sql => {
-    await sql`UPDATE mail0_sync_accounts SET classification_retry_at=now(),classification_error=NULL,classification_generation=classification_generation+1,classification_running_at=NULL,classification_batch_size=10 WHERE user_id=${owner}`;
+    await sql`UPDATE mail0_sync_accounts SET classification_retry_at=now(),classification_error=NULL,classification_generation=classification_generation+1,classification_running_at=NULL,classification_batch_size=50 WHERE user_id=${owner}`;
   });
 }
 export async function controlClassification(owner: string, action: 'start' | 'pause' | 'restart') {
@@ -62,7 +62,7 @@ export async function controlClassification(owner: string, action: 'start' | 'pa
   return withDb(sql => sql.begin(async tx => {
     // Serialize with the worker's final write so a paused/restarted run cannot commit late.
     await tx`SELECT account_id FROM mail0_sync_accounts WHERE user_id=${owner} ORDER BY account_id FOR NO KEY UPDATE`;
-    await tx`UPDATE mail0_sync_accounts SET classification_paused=${action === 'pause'},classification_generation=classification_generation+1,classification_running_at=NULL,classification_error=NULL,classification_retry_at=now(),classification_batch_size=10 WHERE user_id=${owner}`;
+    await tx`UPDATE mail0_sync_accounts SET classification_paused=${action === 'pause'},classification_generation=classification_generation+1,classification_running_at=NULL,classification_error=NULL,classification_retry_at=now(),classification_batch_size=50 WHERE user_id=${owner}`;
     if (action === 'restart') {
       await tx`UPDATE mail0_cached_mail SET ai_category=NULL,ai_source_hash=NULL,ai_classified_at=NULL WHERE user_id=${owner} AND kind='mail' AND 'inbox'=ANY(folders) AND NOT EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=mail0_cached_mail.user_id AND f.account_id=mail0_cached_mail.account_id AND f.native_id=mail0_cached_mail.native_id)`;
     }
@@ -82,9 +82,11 @@ export async function syncStatus(owner: string, accounts: MailboxAccount[]) {
       await sql`SELECT s.account_id,s.status,s.error_code,s.last_synced_at,s.classification_error,s.classification_updated_at,s.classification_paused,s.classification_running_at,s.classification_retry_at,s.folder_errors,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders))::int AS classification_total,count(c.native_id) FILTER(WHERE c.kind='mail' AND 'inbox'=ANY(c.folders) AND ((c.ai_source_hash=md5(c.search_text) AND c.ai_category IS NOT NULL) OR EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id)))::int AS classified_count,s.requested_at>s.completed_request_at AS queued,count(c.native_id)::int AS cached_count,coalesce(sum(c.body_bytes),0)::int AS body_bytes FROM mail0_sync_accounts s LEFT JOIN mail0_cached_mail c USING(user_id,account_id) WHERE s.user_id=${owner} GROUP BY s.user_id,s.account_id`;
     const [health] =
       await sql`SELECT heartbeat_at>now()-interval '90 seconds' AS online FROM mail0_sync_worker_health WHERE id=1`;
+    const [classifier] = await sql`SELECT heartbeat_at>now()-interval '90 seconds' AS online FROM mail0_classifier_health WHERE id=1`;
     return {
       enabled: syncEnabled(),
       workerOnline: !!health?.online,
+      classifierOnline: !!classifier?.online,
       accounts: accounts.map((a) => {
         const row = states.find((s) => s.account_id === a.id);
         return {
@@ -99,7 +101,7 @@ export async function syncStatus(owner: string, accounts: MailboxAccount[]) {
           classifiedCount: Number(row?.classified_count || 0),
           classificationError: row?.classification_error || null,
           classificationPaused: !!row?.classification_paused,
-          classificationRunning: !!row?.classification_running_at && !!health?.online && new Date(row.classification_running_at).getTime() > Date.now() - 120000,
+          classificationRunning: !!row?.classification_running_at && !!classifier?.online && new Date(row.classification_running_at).getTime() > Date.now() - 120000,
           classificationRetryAt: row?.classification_retry_at ? new Date(row.classification_retry_at).toISOString() : null,
           folderErrors: (row?.folder_errors || {}) as Record<string, string>,
           classificationUpdatedAt: row?.classification_updated_at ? new Date(row.classification_updated_at).toISOString() : null,

@@ -7,7 +7,10 @@
     "migrate": "node migrate.mjs"
   },
   "dependencies": {
-    "miniflare": "4.20250816.1",
+    "miniflare": "4.20260730.0",
     "postgres": "3.4.5"
+  },
+  "overrides": {
+    "workerd": "1.20260908.1"
   }
 }

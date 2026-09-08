@@ -92,6 +92,12 @@ export type ZeroEnv = {
   ARCADE_API_KEY: string;
   OPENAI_MODEL: string;
   OPENAI_MINI_MODEL: string;
+  AI_CLASSIFY_CONCURRENCY?: string;
+  AI_CLASSIFY_BATCH_SIZE?: string;
+  AI_CLASSIFY_INTERVAL_SECONDS?: string;
+  AI_CLASSIFY_TIMEOUT_SECONDS?: string;
+  AI_RECENT_DAYS?: string;
+  AI_HISTORY_EVERY_BATCHES?: string;
   ANTHROPIC_API_KEY: string;
   GOOGLE_S_ACCOUNT: string;
   AXIOM_API_TOKEN: string;

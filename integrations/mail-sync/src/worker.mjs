@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { defaults,imapEntry,errorCode } from './model.mjs';
 import { upsert,prune } from './store.mjs';
-import { classifyAccount } from './classify.mjs';
+import { resourceLimits } from './limits.mjs';
 import { GoogleSync } from './google.mjs';
 export async function bridge(config,ownerId,action,input={}) {
   const r=await fetch(new URL('/rpc',config.IMAP_BRIDGE_URL),{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+config.IMAP_BRIDGE_SECRET},body:JSON.stringify({ownerId,action,input}),signal:AbortSignal.timeout(action==='sync.snapshot'?120000:5000)});
@@ -56,31 +56,28 @@ export async function runAccount(sql,config,google,a) {
   }
 }
 export async function main(config=process.env) {
-  const sql=postgres(config.DATABASE_URL,{max:4,connect_timeout:5,idle_timeout:10});
+  const limits=resourceLimits(config);
+  const sql=postgres(config.DATABASE_URL,{max:limits.syncAccounts+2,connect_timeout:5,idle_timeout:10});
   await sql.unsafe(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));
   // One worker per database, even after accidental duplicate service starts.
   const lock=await sql.reserve();
   if(!(await lock`SELECT pg_try_advisory_lock(20260906,1) AS acquired`)[0].acquired) throw Error('Sync worker already running');
-  const google=new GoogleSync(config),active=new Map();let stopped=false,lastDiscovery=0,classification=null,discovery=null;
+  const google=new GoogleSync(config),active=new Map();let stopped=false,lastDiscovery=0,discovery=null;
   process.on('SIGTERM',()=>stopped=true);process.on('SIGINT',()=>stopped=true);
   console.log('Local background mailbox synchronization started');
   while(!stopped) {
     try {
       await sql`INSERT INTO mail0_sync_worker_health VALUES(1,now()) ON CONFLICT(id) DO UPDATE SET heartbeat_at=excluded.heartbeat_at`;
       if(!discovery && Date.now()-lastDiscovery>30000) { lastDiscovery=Date.now(); discovery=discover(sql,config).catch(()=>console.warn('Mailbox discovery will retry')).finally(()=>discovery=null); }
-      if (!classification) {
-        const [account]=await sql`SELECT user_id,account_id FROM mail0_sync_accounts a WHERE NOT classification_paused AND classification_retry_at<=now() AND EXISTS(SELECT 1 FROM mail0_cached_mail c WHERE c.user_id=a.user_id AND c.account_id=a.account_id AND c.kind='mail' AND 'inbox'=ANY(c.folders) AND NOT EXISTS(SELECT 1 FROM mail0_category_feedback f WHERE f.user_id=c.user_id AND f.account_id=c.account_id AND f.native_id=c.native_id) AND (c.ai_category IS NULL OR c.ai_source_hash IS DISTINCT FROM md5(c.search_text))) ORDER BY classification_retry_at LIMIT 1`;
-        if(account) classification=classifyAccount(sql,config,account).catch(()=>console.warn('Classification database operation deferred')).finally(()=>classification=null);
-      }
-      const due=await sql`SELECT *,requested_at::text AS request_stamp FROM mail0_sync_accounts WHERE next_sync_at<=now() OR requested_at>coalesce(completed_request_at,'epoch'::timestamptz) ORDER BY last_synced_at NULLS FIRST,next_sync_at LIMIT 20`;
+      const due=await sql`SELECT *,requested_at::text AS request_stamp FROM mail0_sync_accounts WHERE next_sync_at<=now() OR requested_at>coalesce(completed_request_at,'epoch'::timestamptz) ORDER BY (requested_at>coalesce(completed_request_at,'epoch'::timestamptz)) DESC, next_sync_at,account_id LIMIT 100`;
       for(const a of due) {
-        if(active.size>=2) break;
+        if(active.size>=limits.syncAccounts) break;
         const key=a.user_id+':'+a.account_id;if(active.has(key))continue;
         const task=runAccount(sql,config,google,a).catch(()=>console.warn('Sync database operation failed')).finally(()=>active.delete(key));active.set(key,task);
       }
     } catch {console.warn('Sync scheduler will retry after a local service failure');}
     await new Promise(resolve=>setTimeout(resolve,2000));
   }
-  await Promise.allSettled([...active.values(),classification,discovery].filter(Boolean));await lock.release();await sql.end();
+  await Promise.allSettled([...active.values(),discovery].filter(Boolean));await lock.release();await sql.end();
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) main().catch(()=>{console.error('Mailbox sync startup failed; check local service configuration');process.exitCode=1;});

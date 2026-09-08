@@ -60,9 +60,11 @@ apps/mail/scripts.ts
 **/.env.*
 **/.dev.vars*
 **/.wrangler
+**/.build
 **/*.swp
 **/*.swo
 deploy/tls
 native/desktop/release
 
 native/desktop/release-windows
+native/desktop/release-resources

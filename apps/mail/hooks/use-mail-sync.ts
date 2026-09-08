@@ -7,7 +7,8 @@ import { useEffect, useRef, useCallback } from 'react';
 export function useMailSync() {
   const trpc = useTRPC(), cache = useQueryClient(), accountId = useMailboxScope();
   const { data } = useQuery(trpc.mailboxes.syncStatus.queryOptions({ accountId }, {
-    refetchInterval: 5000, meta: { persist: false, noGlobalError: true },
+    refetchInterval: (query) => query.state.error ? 30000 : query.state.data?.accounts.some(a => a.queued || a.status === 'syncing' || a.classificationRunning) ? 5000 : 30000,
+    staleTime: 5000, retry: false, meta: { persist: false, noGlobalError: true },
   }));
   const sync = useMutation(trpc.mailboxes.syncNow.mutationOptions({
     onSuccess: () => cache.invalidateQueries({ queryKey: trpc.mailboxes.syncStatus.pathKey() }),

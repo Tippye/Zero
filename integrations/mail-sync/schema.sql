@@ -62,3 +62,17 @@ CREATE INDEX IF NOT EXISTS mail0_mail_translations_expiry_idx ON mail0_mail_tran
 
 -- Choosing a cached language must not extend its original retention period.
 ALTER TABLE mail0_mail_translations ADD COLUMN IF NOT EXISTS last_used_at timestamptz NOT NULL DEFAULT now();
+
+CREATE TABLE IF NOT EXISTS mail0_classifier_health (id integer PRIMARY KEY CHECK(id=1), heartbeat_at timestamptz NOT NULL);
+
+CREATE TABLE IF NOT EXISTS mail0_classification_settings (
+ user_id text PRIMARY KEY REFERENCES mail0_user(id) ON DELETE CASCADE,
+ concurrency integer NOT NULL CHECK(concurrency BETWEEN 1 AND 4),
+ batch_size integer NOT NULL CHECK(batch_size BETWEEN 1 AND 50),
+ interval_seconds integer NOT NULL CHECK(interval_seconds BETWEEN 2 AND 3600),
+ timeout_seconds integer NOT NULL CHECK(timeout_seconds BETWEEN 5 AND 120),
+ recent_days integer NOT NULL CHECK(recent_days BETWEEN 1 AND 365),
+ history_every_batches integer NOT NULL CHECK(history_every_batches BETWEEN 1 AND 100)
+);
+-- This column is only the adaptive error backoff cap; configured batch size is separate.
+ALTER TABLE mail0_sync_accounts ALTER COLUMN classification_batch_size SET DEFAULT 50;

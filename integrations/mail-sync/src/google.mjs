@@ -1,6 +1,7 @@
 import { fetch, ProxyAgent } from 'undici';
 import { googleEntry, draftEntry } from './model.mjs';
 import { upsert } from './store.mjs';
+import { resourceLimits } from './limits.mjs';
 export class GoogleSync {
   constructor(config) { this.config=config; this.tokens=new Map(); this.dispatcher=config.ZERO_GOOGLE_PROXY?new ProxyAgent(config.ZERO_GOOGLE_PROXY):undefined; }
   async json(url, options={}) {
@@ -16,6 +17,7 @@ export class GoogleSync {
     this.tokens.set(a.account_id,{value:value.access_token,until:Date.now()+(value.expires_in-60)*1000});return value.access_token;
   }
   async sync(sql,a,settings) {
+    const concurrency=resourceLimits(this.config).syncMessages;
     const token=await this.token(a);
     const api=(path,query={})=>this.json('https://gmail.googleapis.com/gmail/v1/users/me/'+path+'?'+new URLSearchParams(query),{headers:{Authorization:'Bearer '+token}});
     const load=async id=>{try {return googleEntry(a.account_id,await api('threads/'+encodeURIComponent(id),{format:'metadata'}));}catch(e){if(e.status===404)return null;throw e;}};
@@ -48,10 +50,10 @@ export class GoogleSync {
       const unchanged=new Set(existing.filter(r=>versions.get(r.native_id)===r.version).map(r=>r.native_id));
       seen.push(...ids.filter(id=>unchanged.has(id)));
       const missing=ids.filter(id=>!unchanged.has(id));
-      // Two requests at a time keep the background worker below provider rate limits.
-      for(let i=0;i<missing.length;i+=2) {
-        const rows=await Promise.all(missing.slice(i,i+2).map(load));
-        if (i+2<missing.length) await new Promise(resolve=>setTimeout(resolve,1000));
+      // Each account has a bounded number of metadata reads in flight.
+      for(let i=0;i<missing.length;i+=concurrency) {
+        const rows=await Promise.all(missing.slice(i,i+concurrency).map(load));
+        if (i+concurrency<missing.length) await new Promise(resolve=>setTimeout(resolve,1000));
         await upsert(sql,a,rows);seen.push(...rows.filter(Boolean).map(r=>r.native_id));
       }
       await sql`DELETE FROM mail0_cached_mail WHERE user_id=${a.user_id} AND account_id=${a.account_id} AND kind='mail' AND NOT(native_id=ANY(${seen}::text[]))`;
@@ -65,12 +67,12 @@ export class GoogleSync {
     const existingDrafts=await sql`SELECT native_id,draft_preview FROM mail0_cached_mail WHERE user_id=${a.user_id} AND account_id=${a.account_id} AND kind='draft'`;
     const sameDraft=new Set(drafts.filter(d=>existingDrafts.some(r=>r.native_id===d.id && r.draft_preview?.sourceMessageId===d.message.id)).map(d=>d.id));
     const draftIds=[...sameDraft], changedDrafts=drafts.filter(d=>!sameDraft.has(d.id));
-    for(let i=0;i<changedDrafts.length;i+=2) {
-      const rows=await Promise.all(changedDrafts.slice(i,i+2).map(async d=>{
+    for(let i=0;i<changedDrafts.length;i+=concurrency) {
+      const rows=await Promise.all(changedDrafts.slice(i,i+concurrency).map(async d=>{
         try {return draftEntry(a.account_id,{id:d.id,message:await api('messages/'+encodeURIComponent(d.message.id),{format:'metadata'})});}
         catch(e){if(e.status===404)return null;throw e;}
       }));
-      if (i+2<changedDrafts.length) await new Promise(resolve=>setTimeout(resolve,1000));
+      if (i+concurrency<changedDrafts.length) await new Promise(resolve=>setTimeout(resolve,1000));
       await upsert(sql,a,rows);draftIds.push(...rows.filter(Boolean).map(r=>r.native_id));
     }
     await sql`DELETE FROM mail0_cached_mail WHERE user_id=${a.user_id} AND account_id=${a.account_id} AND kind='draft' AND NOT(native_id=ANY(${draftIds}::text[]))`;
