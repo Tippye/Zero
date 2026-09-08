@@ -26,7 +26,7 @@ public struct PairingLoginView: View {
                         Image(decorative: image, scale: 1).interpolation(.none).resizable().scaledToFit().frame(maxWidth: 220, maxHeight: 220).padding(16).background(Color.white)
                     }
                     #endif
-                    Text(request.userCode).font(.system(.title2, design: .monospaced))
+                    Text(request.userCode).font(.system(.title2, design: .monospaced)).accessibilityIdentifier("pairingCode")
                     Text(request.expiresAt, style: .relative)
                     Text(request.verificationUri.absoluteString).font(.footnote)
                 }
@@ -38,7 +38,7 @@ public struct PairingLoginView: View {
                         catch { message = "无法连接服务器，请重试。 / Connection failed." }
                         busy = false
                     }
-                }.disabled(busy || request != nil)
+                }.disabled(busy || request != nil).accessibilityIdentifier("pairDevice")
             }.padding()
         }
         .task(id: request?.requestId) {

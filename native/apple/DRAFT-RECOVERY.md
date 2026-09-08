@@ -1,0 +1,15 @@
+# Device-local draft recovery
+
+The native composer snapshots committed edits immediately and flushes again when the scene becomes inactive or the composer disappears. It stores the complete draft, including unfinished recipient text, attachments, original HTML, reply headers, account ID, imported-share linkage and the original composer UUID. Recovery restores the last successfully written snapshot; a storage or locked-keychain failure is displayed in the composer.
+
+Snapshots use AES-256-GCM with a random key per exact server origin. Keys use a nonsynchronizing Keychain item with `WhenUnlockedThisDeviceOnly` accessibility. The origin and filename authenticate each ciphertext, and the encrypted manifest also contains the origin, account ID and composer UUID. Application Support paths contain only a hashed origin and UUID filenames. Files are atomic, permission `0600`, protected with complete file protection on iOS/watchOS and excluded from backup through their containing directory. No plaintext disk fallback exists.
+
+Unchanged attachment ciphertext is reused when typing; a new attachment blob is committed before its referring manifest, and the previous blob is removed afterward. Each origin permits up to 10 snapshots and 128 MiB total, with a 4 MiB manifest and 15 MiB of decoded attachments per draft. Reaching a limit reports an error instead of evicting older drafts. Corrupt files are preserved and produce an explicit recovery error.
+
+The app offers recovery only after pairing and a successful account fetch. It restores only drafts belonging to an owned, connected account on that origin. Sending is a separate user action. Before a send starts, the composer durably marks the original operation ID as uncertain. A crash during sending therefore restores a send-disabled draft that can be checked against Sent and saved, without automatic retries.
+
+Successful server save/send and explicit discard remove the local snapshot and acknowledge imported shares. Signing out or detecting revoked credentials clears that origin's files and key. Restarting or reconnecting normally does not clear recovery. This feature does not cache the mailbox or implement offline delivery.
+
+Each live window holds an in-process lease for its origin and composer UUID. Other windows hide that draft from recovery, and restore/write/delete operations check ownership again. Explicit completion releases the lease; closing the owning window releases it through weak ownership without deleting its snapshot. Backgrounding retains ownership. Logout or revocation invalidates all live windows for that origin before asynchronous work can recreate a recovery file.
+
+Regression tests use injected in-memory keys and isolated temporary directories. They cover ciphertext-only storage, attachment reuse/replacement, origin/account filtering, tampering, missing keys, capacity, exact draft restoration, explicit cleanup and duplicate restoration across live windows; no real provider or email service is called.

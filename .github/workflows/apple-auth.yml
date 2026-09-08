@@ -3,50 +3,151 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      [
-        'native/apple/**',
-        'apps/server/src/lib/native-mail*',
-        'apps/server/src/routes/native.ts',
-        '.github/workflows/apple-auth.yml',
-      ]
+      - 'native/apple/**'
+      - 'native/desktop/src/links.*'
+      - 'native/desktop/src/notifications.cjs'
+      - 'native/desktop/test/**'
+      - 'apps/server/src/lib/native-mail*'
+      - 'apps/server/src/lib/mailbox-notifications.ts'
+      - 'apps/server/src/routes/native*'
+      - 'apps/server/src/routes/desktop.ts'
+      - 'apps/server/src/routes/pairing.ts'
+      - 'deploy/runtime/pairing-store*'
+      - 'deploy/tests/apple*'
+      - '.github/workflows/apple-auth.yml'
 permissions:
   contents: read
+concurrency:
+  group: apple-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
 jobs:
-  apple:
+  shared:
+    name: Shared policies and desktop parity
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Xcode version
-        run: xcodebuild -version
-      - name: Test shared mail, authentication and Keychain
-        working-directory: native/apple
-        run: swift test
-      - name: Build native Mac application
-        working-directory: native/apple
-        run: xcodebuild -project ZeroMail.xcodeproj -scheme ZeroMac -destination 'platform=macOS' -derivedDataPath /tmp/zero-mac CODE_SIGNING_ALLOWED=NO build
-      - name: Build universal iPhone and iPad application
-        working-directory: native/apple
-        run: xcodebuild -project ZeroMail.xcodeproj -scheme ZeroIOS -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/zero-ios CODE_SIGNING_ALLOWED=NO build
-      - name: Build independent Apple Watch application
-        working-directory: native/apple
-        run: xcodebuild -project ZeroMail.xcodeproj -scheme ZeroWatch -destination 'generic/platform=watchOS Simulator' -derivedDataPath /tmp/zero-watch CODE_SIGNING_ALLOWED=NO build
-      - name: Select installed iPhone simulator
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Record toolchain
         run: |
-          python3 - <<'PY'
-          import json, os, subprocess
-          devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))['devices']
-          phone = next(d for runtime, values in devices.items() if 'iOS' in runtime for d in values if d['name'].startswith('iPhone'))
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write('ZERO_SIMULATOR=' + phone['udid'] + '\n')
-          PY
-      - name: Test iPhone onboarding
+          mkdir -p "$RUNNER_TEMP/apple-shared-evidence"
+          xcodebuild -version | tee "$RUNNER_TEMP/apple-shared-evidence/xcode.log"
+          swift --version | tee "$RUNNER_TEMP/apple-shared-evidence/swift.log"
+          node --version | tee "$RUNNER_TEMP/apple-shared-evidence/node.log"
+      - name: Test Debug mail, authentication, Keychain and loopback policy
         working-directory: native/apple
-        run: xcodebuild -project ZeroMail.xcodeproj -scheme ZeroIOS -destination "platform=iOS Simulator,id=$ZERO_SIMULATOR" -derivedDataPath /tmp/zero-ios -resultBundlePath /tmp/zero-ios-tests.xcresult CODE_SIGNING_ALLOWED=NO test
-      - name: Upload simulator test evidence
+        run: swift test --configuration debug --scratch-path "$RUNNER_TEMP/zero-shared" 2>&1 | tee "$RUNNER_TEMP/apple-shared-evidence/swift-debug.log"
+      - name: Test Release mail and HTTPS policy
+        working-directory: native/apple
+        run: swift test --configuration release --scratch-path "$RUNNER_TEMP/zero-shared" 2>&1 | tee "$RUNNER_TEMP/apple-shared-evidence/swift-release.log"
+      - name: Test Windows desktop link and notification parity
+        run: node --test native/desktop/test/*.test.mjs 2>&1 | tee "$RUNNER_TEMP/apple-shared-evidence/desktop.log"
+      - name: Upload shared test evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apple-simulator-results
-          path: /tmp/zero-ios-tests.xcresult
-          if-no-files-found: ignore
+          name: apple-shared-results
+          path: ${{ runner.temp }}/apple-shared-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+  applications:
+    name: ${{ matrix.target }} application and UI
+    runs-on: macos-15
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: mac
+            scheme: ZeroMac
+            build-destination: platform=macOS
+            ui-family: macOS
+            extensions: ZeroMacWidgets
+          - target: iphone
+            scheme: ZeroIOS
+            build-destination: generic/platform=iOS Simulator
+            ui-family: iPhone
+            extensions: ZeroIOSShare ZeroIOSWidgets
+          - target: ipad
+            scheme: ZeroIOS
+            build-destination: generic/platform=iOS Simulator
+            ui-family: iPad
+            extensions: ZeroIOSShare ZeroIOSWidgets
+          - target: watch
+            scheme: ZeroWatch
+            build-destination: generic/platform=watchOS Simulator
+            ui-family: none
+            extensions: ZeroWatchWidgets
+    env:
+      ZERO_BUILD_DIR: ${{ runner.temp }}/apple-${{ matrix.target }}/build
+      ZERO_EVIDENCE_DIR: ${{ runner.temp }}/apple-${{ matrix.target }}/evidence
+      ZERO_UI_PORT: '19280'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Record Xcode and available SDKs
+        run: |
+          mkdir -p "$ZERO_EVIDENCE_DIR"
+          xcodebuild -version | tee "$ZERO_EVIDENCE_DIR/xcode.log"
+          xcodebuild -showsdks | tee "$ZERO_EVIDENCE_DIR/sdks.log"
+      - name: Build Release application and embedded extensions
+        working-directory: native/apple
+        env:
+          ZERO_SCHEME: ${{ matrix.scheme }}
+          ZERO_BUILD_DESTINATION: ${{ matrix.build-destination }}
+        run: |
+          xcodebuild -project ZeroMail.xcodeproj -scheme "$ZERO_SCHEME" \
+            -configuration Release -destination "$ZERO_BUILD_DESTINATION" \
+            -derivedDataPath "$ZERO_BUILD_DIR" CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$ZERO_EVIDENCE_DIR/release-build.log"
+      - name: Verify extensions are embedded in the built application
+        env:
+          ZERO_SCHEME: ${{ matrix.scheme }}
+          ZERO_EXTENSIONS: ${{ matrix.extensions }}
+        run: |
+          python3 - <<'PY' | tee "$ZERO_EVIDENCE_DIR/extensions.log"
+          import os, pathlib
+          products = pathlib.Path(os.environ['ZERO_BUILD_DIR']) / 'Build' / 'Products'
+          apps = list(products.glob('Release*/' + os.environ['ZERO_SCHEME'] + '.app'))
+          assert len(apps) == 1, 'Expected exactly one Release application'
+          embedded = {extension.stem for extension in apps[0].rglob('*.appex')}
+          expected = set(os.environ['ZERO_EXTENSIONS'].split())
+          assert expected <= embedded, f'Missing embedded extensions: {expected - embedded}'
+          print('Embedded extensions:', ', '.join(sorted(embedded)))
+          PY
+      - name: Select installed iPhone or iPad simulator
+        if: matrix.ui-family == 'iPhone' || matrix.ui-family == 'iPad'
+        env:
+          ZERO_SIMULATOR_FAMILY: ${{ matrix.ui-family }}
+        run: |
+          simulator="$(python3 native/apple/scripts/select-simulator.py "$ZERO_SIMULATOR_FAMILY" \
+            --report "$ZERO_EVIDENCE_DIR/simulator.json")"
+          echo "ZERO_UI_DESTINATION=platform=iOS Simulator,id=$simulator" >> "$GITHUB_ENV"
+      - name: Test synthetic pairing, mail, attachments, drafts, relaunch and send review
+        if: matrix.ui-family != 'none'
+        env:
+          ZERO_SCHEME: ${{ matrix.scheme }}
+          ZERO_UI_BUILD_DIR: ${{ env.ZERO_BUILD_DIR }}
+        run: |
+          # test-ui.sh enables ZERO_UI_FIXTURE only in the test runner. Its
+          # loopback fixture contains synthetic mail and never uses port 18080.
+          # Ad hoc Mac UI tests omit App Groups; the Release build above keeps
+          # the real entitlement configuration. Provisioning needs device QA.
+          bash native/apple/scripts/test-ui.sh "$ZERO_SCHEME" \
+            "${ZERO_UI_DESTINATION:-platform=macOS}" "$ZERO_EVIDENCE_DIR/ui"
+      - name: Upload build logs and XCTest results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-${{ matrix.target }}-results
+          path: ${{ env.ZERO_EVIDENCE_DIR }}
+          if-no-files-found: warn
+          retention-days: 14

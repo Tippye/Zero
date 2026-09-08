@@ -1,0 +1,18 @@
+/* Zero Mail settings */
+"MAIL_LIST" = "Message List";
+"PREVIEW_LINES" = "Preview";
+"PREVIEW_NONE" = "None";
+"PREVIEW_ONE" = "1 Line";
+"PREVIEW_TWO" = "2 Lines";
+"PREVIEW_THREE" = "3 Lines";
+"PREVIEW_FOUR" = "4 Lines";
+"PREVIEW_FIVE" = "5 Lines";
+"SHOW_ACCOUNT_ADDRESS" = "Show Account Address";
+"READING" = "Reading";
+"MARK_READ_ON_OPEN" = "Mark as Read When Opened";
+"CONFIRM_BEFORE_TRASH" = "Ask Before Deleting";
+"NOTIFICATIONS" = "Notifications";
+"NOTIFICATION_PREVIEW" = "Show Sender and Subject";
+"NOTIFICATION_SOUND" = "Play Sound";
+"ABOUT" = "About";
+"ABOUT_FOOTER" = "Manage accounts and paired devices in Zero Mail.";

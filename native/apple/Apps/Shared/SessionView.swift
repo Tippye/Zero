@@ -5,6 +5,7 @@ import ZeroPairing
 struct SessionView: View {
     @StateObject private var store = MailStore()
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var notifications = MailNotifications.shared
     #if !os(watchOS)
     @ObservedObject private var intentInbox = ComposeIntentInbox.shared
     #endif
@@ -29,16 +30,38 @@ struct SessionView: View {
             }
         }
         .task {
+            store.sceneChanged(active: scenePhase == .active)
             await store.start()
+            store.receiveNotification()
             #if !os(watchOS)
             receiveIntent()
             #endif
         }
         .onChange(of: scenePhase) { phase in
+            store.sceneChanged(active: phase == .active)
             if phase == .active, store.phase == .ready { Task { await store.reload() } }
+            if phase == .active { store.receiveNotification() }
             #if !os(watchOS)
             if phase == .active { receiveIntent() }
             #endif
+        }
+        .onChange(of: store.phase) { phase in if phase == .ready { store.receiveNotification() } }
+        .onReceive(notifications.$pending) { destination in if destination != nil { Task { store.receiveNotification() } } }
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification).receive(on: RunLoop.main)) { _ in
+            store.refreshPreferences()
+        }
+        .onDisappear { store.stopPolling() }
+        .confirmationDialog("将邮件移到废纸篓？", isPresented: Binding(get: { store.pendingTrashID != nil }, set: { if !$0 { store.pendingTrashID = nil } }), titleVisibility: .visible, presenting: store.pendingTrashID) { id in
+            Button("移到废纸篓", role: .destructive) { Task { await store.confirmTrash(id: id) } }
+            Button("取消", role: .cancel) { store.pendingTrashID = nil }
+        }
+        .confirmationDialog("导入系统分享内容？", isPresented: Binding(get: { store.sharedDraftOffer != nil }, set: { if !$0 { store.deferSharedDraft() } }), titleVisibility: .visible) {
+            if let draft = store.sharedDraftOffer {
+                Button("导入草稿") { store.importSharedDraft(draft) }
+                Button("稍后", role: .cancel) { store.deferSharedDraft() }
+            }
+        } message: {
+            Text("将创建一份收件人为空的新草稿。请检查发件邮箱、正文和附件，再手动发送。")
         }
         .onOpenURL { if let link = MailLink(url: $0) { store.handle(link) } }
         .onContinueUserActivity(MailLink.activityType) { activity in
@@ -49,10 +72,18 @@ struct SessionView: View {
             Button("好", role: .cancel) { store.error = nil }
         } message: { Text(store.error ?? "") }
         #if !os(watchOS)
-        .onReceive(intentInbox.$pending) { link in if link != nil, scenePhase == .active { receiveIntent() } }
+        .onReceive(intentInbox.$pending) { link in
+            // @Published emits before storing the new value. Consume after the
+            // current actor turn so a Shortcut arriving in an active app opens.
+            if link != nil, scenePhase == .active { Task { @MainActor in receiveIntent() } }
+        }
+        #endif
+        #if os(iOS)
+        .sheet(isPresented: $store.showSettings) { DeviceSettingsView(store: store) }
         #endif
         #if os(macOS)
         .frame(minWidth: 760, minHeight: 520)
+        .background(MailSettingsWindowContext(store: store))
         .focusedSceneValue(\.mailStore, store)
         #endif
     }
@@ -74,7 +105,15 @@ struct SessionView: View {
                     .accessibilityIdentifier("serverURL")
                 TextField("设备名称", text: $store.deviceName).accessibilityIdentifier("deviceName")
                 Button("继续") { Task { await store.connect() } }.buttonStyle(.borderedProminent).disabled(store.serverText.isEmpty || store.deviceName.isEmpty).accessibilityIdentifier("connect")
+                #if os(macOS)
+                MacSettingsOpenButton(store: store)
+                #elseif os(iOS)
+                Button("设置") { store.showSettings = true }.accessibilityIdentifier("mailSettings")
+                #endif
                 Text("认证凭据只保存在这台设备的钥匙串中。").font(.footnote).foregroundStyle(.secondary)
+                #if DEBUG
+                Text("开发版本支持本机 HTTP 测试服务，例如 http://localhost:18080。正式版本仅连接 HTTPS。").font(.footnote).foregroundStyle(.secondary)
+                #endif
             }.padding().frame(maxWidth: 460)
         }
     }

@@ -15,6 +15,18 @@ private func response(_ request: URLRequest, _ json: String, status: Int = 200) 
     (Data(json.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
 }
 final class PairingClientTests: XCTestCase {
+    func testDevelopmentHTTPIsLimitedToExactLoopbackOrigins() throws {
+        for value in ["http://localhost:18080", "http://127.0.0.1:18080", "http://[::1]:18080"] {
+            #if DEBUG
+            XCTAssertTrue(PairingClient.allowsDevelopmentHTTP(URL(string: value)!), value)
+            #else
+            XCTAssertFalse(PairingClient.allowsDevelopmentHTTP(URL(string: value)!), value)
+            #endif
+        }
+        for value in ["http://localhost.example:18080", "http://192.168.1.2", "http://127.0.0.2", "http://localhost@external.example", "http://user:pass@localhost", "http://localhost/api", "http://localhost?redirect=example", "https://localhost"] {
+            XCTAssertFalse(PairingClient.allowsDevelopmentHTTP(URL(string: value)!), value)
+        }
+    }
     func testOriginValidationAndExplicitHTTP() throws {
         for value in ["http://mail.example", "https://user:secret@mail.example", "https://mail.example/path", "https://mail.example?key=value", "https://mail.example/#code"] {
             XCTAssertThrowsError(try PairingClient.serverOrigin(URL(string: value)!))
@@ -76,6 +88,55 @@ final class PairingClientTests: XCTestCase {
         let client = try PairingClient(server: URL(string: "https://mail.example")!, store: store, transport: { _ in throw URLError(.notConnectedToInternet) })
         do { try await client.signOut(); XCTFail("Network failure should be reported") } catch { }
         XCTAssertNil(try store.read(server: "https://mail.example"))
+    }
+    func testSignOutClearsBeforeNetworkAndDoesNotDeleteReplacementOnCompletion() async throws {
+        let store = MemoryStore(), origin = "https://mail.example"
+        try store.save(token: "old-token", server: origin)
+        let client = try PairingClient(server: URL(string: origin)!, store: store, transport: { request in
+            XCTAssertNil(try store.read(server: origin), "Local logout completes before waiting for the server")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer old-token")
+            try store.save(token: "replacement-token", server: origin)
+            return response(request, "{}")
+        })
+        try await client.signOut()
+        XCTAssertEqual(try store.read(server: origin), "replacement-token")
+    }
+    func testLateUnauthorizedResponseCannotRevokeReplacementCredential() async throws {
+        let store = MemoryStore(), origin = "https://mail.example"
+        try store.save(token: "old-token", server: origin)
+        let client = try PairingClient(server: URL(string: origin)!, store: store, transport: { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer old-token")
+            try store.save(token: "replacement-token", server: origin)
+            return response(request, "{\"error\":\"unauthorized\"}", status: 401)
+        })
+        do { _ = try await client.devices(); XCTFail("The old request must fail") }
+        catch { XCTAssertTrue(error is CancellationError, "A stale request must not tell the app to erase the new session") }
+        XCTAssertEqual(try store.read(server: origin), "replacement-token")
+    }
+    func testWebAIUnauthorizedResponsePreservesReplacementCredential() async throws {
+        let store = MemoryStore(), origin = "https://mail.example"
+        try store.save(token: "old-token", server: origin)
+        let client = try PairingClient(server: URL(string: origin)!, store: store, transport: { request in
+            XCTAssertEqual(request.url?.path, "/api/trpc/ai.read")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer old-token")
+            try store.save(token: "replacement-token", server: origin)
+            return response(request, #"{"error":{"json":{"message":"unauthorized","data":{"code":"UNAUTHORIZED"}}}}"#, status: 401)
+        })
+        do { _ = try await client.webAIRequest(operation: .read, input: Data("{}".utf8)); XCTFail("The old request must fail") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(try store.read(server: origin), "replacement-token")
+    }
+    func testLateCurrentDeviceRevocationDoesNotSignOutReplacement() async throws {
+        let store = MemoryStore(), origin = "https://mail.example"
+        try store.save(token: "old-token", server: origin)
+        let client = try PairingClient(server: URL(string: origin)!, store: store, transport: { request in
+            try store.save(token: "replacement-token", server: origin)
+            return response(request, "{}")
+        })
+        let device = PairedDevice(id: "old-session", name: "Mac", createdAt: Date(), expiresAt: Date.distantFuture, current: true)
+        do { try await client.revoke(device); XCTFail("An obsolete session must not invalidate the current UI") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(try store.read(server: origin), "replacement-token")
     }
     #if canImport(Security)
     func testKeychainRoundTrip() throws {

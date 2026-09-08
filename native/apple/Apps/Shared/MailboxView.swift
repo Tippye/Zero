@@ -15,11 +15,16 @@ struct MailboxView: View {
                 }
                 Section {
                     ForEach(MailFolder.allCases) { folder in
-                        NavigationLink(value: folder) { Label(folder.title, systemImage: folder.symbol) }
+                        NavigationLink(value: folder) { Label(folder.title, systemImage: folder.symbol) }.accessibilityIdentifier("folder-" + folder.rawValue)
                     }
                 }
                 Section {
-                    Button { store.showSettings = true } label: { Label("设置与设备", systemImage: "gear") }
+                    #if os(macOS)
+                    MacSettingsOpenButton(store: store)
+                    #else
+                    Button { store.showSettings = true } label: { Label("设置", systemImage: "gearshape") }
+                        .accessibilityIdentifier("mailSettings")
+                    #endif
                 }
             }
             .navigationTitle("Zero Mail")
@@ -28,14 +33,11 @@ struct MailboxView: View {
         } detail: {
             ThreadDetailView(store: store)
         }
-        .toolbar {
-            ToolbarItemGroup {
-                Button { Task { await store.refresh() } } label: { Label("刷新", systemImage: "arrow.clockwise") }.disabled(store.loading)
-                Button { store.compose() } label: { Label("写邮件", systemImage: "square.and.pencil") }
-            }
-        }
-        .sheet(isPresented: $store.showSettings) { DeviceSettingsView(store: store) }
+        #if os(macOS)
+        .toolbar { MailboxActions(store: store) }
+        #endif
         .sheet(item: $store.composer) { draft in ComposerView(store: store, initial: draft) }
+        .sheet(isPresented: $store.showDraftRecovery, onDismiss: { store.finishRestoringDraft() }) { DraftRecoveryView(store: store) }
         .task(id: store.filterKey) {
             store.changeFilter()
             do {
@@ -47,6 +49,27 @@ struct MailboxView: View {
     }
 }
 
+struct MailboxActions: ToolbarContent {
+    @ObservedObject var store: MailStore
+    var body: some ToolbarContent {
+        #if os(iOS)
+        ToolbarItemGroup(placement: .bottomBar) { actions }
+        #else
+        ToolbarItemGroup { actions }
+        #endif
+    }
+    @ViewBuilder private var actions: some View {
+        Button { Task { await store.refresh() } } label: { Label("刷新", systemImage: "arrow.clockwise") }.disabled(store.loading).accessibilityIdentifier("refresh")
+        if !store.recoverableDrafts.isEmpty {
+            Button("恢复草稿 (\(store.recoverableDrafts.count))") { store.showDraftRecovery = true }.accessibilityIdentifier("recoverDrafts")
+        }
+        #if os(iOS)
+        Spacer()
+        #endif
+        Button { store.compose() } label: { Label("写邮件", systemImage: "square.and.pencil") }.accessibilityIdentifier("compose")
+    }
+}
+
 struct ThreadListView: View {
     @ObservedObject var store: MailStore
     var body: some View {
@@ -55,7 +78,7 @@ struct ThreadListView: View {
                 Label(store.warnings[index].email + "：" + store.warnings[index].message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
             }
             ForEach(store.threads) { thread in
-                NavigationLink(value: thread.id) { MailRow(thread: thread) }
+                NavigationLink(value: thread.id) { MailRow(thread: thread, preferences: store.preferences) }
                     .contextMenu {
                         Button(thread.unread ? "标为已读" : "标为未读") { Task { await store.act(thread.unread ? .read : .unread, id: thread.id) } }
                         Button(thread.starred ? "取消星标" : "添加星标") { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } }
@@ -78,23 +101,34 @@ struct ThreadListView: View {
         .navigationTitle(store.folder.title)
         .searchable(text: $store.query, prompt: "搜索邮件")
         .refreshable { await store.refresh() }
+        #if os(iOS)
+        .toolbar { MailboxActions(store: store) }
+        #endif
         .onChange(of: store.selectedID) { id in if let id { Task { await store.open(id: id) } } }
     }
 }
 
 struct MailRow: View {
     let thread: MailSummary
+    let preferences: MailPreferences
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack {
                 if thread.unread { Circle().fill(.tint).frame(width: 7, height: 7).accessibilityLabel("未读") }
                 Text(thread.sender.display.isEmpty ? thread.accountEmail : thread.sender.display).fontWeight(thread.unread ? .semibold : .regular).lineLimit(1)
+                    .accessibilityIdentifier("thread-" + thread.id)
                 Spacer(minLength: 4)
                 if thread.starred { Image(systemName: "star.fill").foregroundStyle(.yellow).accessibilityLabel("星标") }
             }
             Text(thread.subject.isEmpty ? "无主题" : thread.subject).font(.subheadline).lineLimit(2)
-            if !thread.snippet.isEmpty { Text(thread.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
-            Text(thread.accountEmail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            if preferences.previewLines > 0, !thread.snippet.isEmpty {
+                Text(thread.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(preferences.previewLines)
+                    .accessibilityIdentifier("mailPreview-" + thread.id)
+            }
+            if preferences.showAccountAddress {
+                Text(thread.accountEmail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    .accessibilityIdentifier("mailAccount-" + thread.id)
+            }
         }.padding(.vertical, 4)
     }
 }
@@ -102,6 +136,10 @@ struct MailRow: View {
 struct ThreadDetailView: View {
     private struct HTMLPresentation: Identifiable { let id = UUID(); let html: String }
     @ObservedObject var store: MailStore
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var exported: URL?
     @State private var exporting = false
     @State private var htmlPresentation: HTMLPresentation?
@@ -116,9 +154,10 @@ struct ThreadDetailView: View {
                                 Text(message.subject.isEmpty ? "无主题" : message.subject).font(.title2.bold()).textSelection(.enabled)
                                 Text(message.sender.display + " <" + message.sender.email + ">").font(.subheadline).textSelection(.enabled)
                                 Text("收件人：" + message.to.map(\.email).joined(separator: ", ")).font(.caption).foregroundStyle(.secondary)
-                                Text(message.receivedOn).font(.caption).foregroundStyle(.secondary)
+                                MailDateLabel(value: message.receivedOn).font(.caption).foregroundStyle(.secondary)
                                 Divider()
-                                Text(message.text.isEmpty ? "此邮件没有可显示的文字正文。" : message.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                                MailMessageBody(html: message.html, text: message.text).id(message.id)
+                                MailAIView(store: store, threadID: thread.id, messageID: message.id).id(message.id)
                                 if !message.html.isEmpty {
                                     Button("查看邮件排版") { htmlPresentation = HTMLPresentation(html: message.html) }
                                 }
@@ -127,17 +166,20 @@ struct ThreadDetailView: View {
                                         Label(attachment.filename + " · " + ByteCountFormatter.string(fromByteCount: Int64(attachment.size), countStyle: .file), systemImage: "paperclip")
                                     }.disabled(exporting)
                                 }
-                                HStack {
-                                    Button("回复") { store.reply(message) }
-                                    Button("回复全部") { store.reply(message, all: true) }
-                                    Button("转发正文") { store.reply(message, forward: true) }
+                                if dynamicTypeSize.isAccessibilitySize {
+                                    VStack(alignment: .leading, spacing: 12) { replyActions(message) }
+                                } else {
+                                    ViewThatFits(in: .horizontal) {
+                                        HStack { replyActions(message) }.fixedSize(horizontal: true, vertical: false)
+                                        VStack(alignment: .leading, spacing: 12) { replyActions(message) }
+                                    }
                                 }
                                 Divider()
                             }
                         }
-                        if let exported { ShareLink("保存或分享附件", item: exported) }
+                        if let exported { ShareLink("保存或分享附件", item: exported).accessibilityIdentifier("shareAttachment") }
                     }.padding(24).frame(maxWidth: 900)
-                }
+                }.accessibilityIdentifier("mailDetail")
                 .userActivity(MailLink.activityType) { activity in
                     guard let server = store.pairing?.server else { return }
                     activity.title = "在 Zero Mail 中继续阅读"
@@ -149,7 +191,7 @@ struct ThreadDetailView: View {
                     Button { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } } label: { Label("星标", systemImage: thread.starred ? "star.fill" : "star") }
                     Button { Task { await store.act(.unread, id: thread.id) } } label: { Label("标为未读", systemImage: "envelope.badge") }
                     Button { Task { await store.act(.archive, id: thread.id) } } label: { Label("归档", systemImage: "archivebox") }
-                    Button { Task { await store.act(.trash, id: thread.id) } } label: { Label("移到废纸篓", systemImage: "trash") }
+                    Button { Task { await store.act(.trash, id: thread.id) } } label: { Label("移到废纸篓", systemImage: "trash") }.accessibilityIdentifier("trashThread")
                 }
             } else {
                 VStack(spacing: 16) {
@@ -162,6 +204,16 @@ struct ThreadDetailView: View {
         .onChange(of: store.selectedID) { _ in clearExport() }
         .onDisappear { clearExport() }
         .sheet(item: $htmlPresentation) { HTMLMailView(html: $0.html) }
+        #if os(iOS)
+        .toolbar {
+            if horizontalSizeClass == .compact { MailboxActions(store: store) }
+        }
+        #endif
+    }
+    @ViewBuilder private func replyActions(_ message: MailMessage) -> some View {
+        Button("回复") { store.reply(message) }
+        Button("回复全部") { store.reply(message, all: true) }
+        Button("转发正文") { store.reply(message, forward: true) }
     }
     private func export(_ attachment: MailAttachment, messageID: String) async {
         exporting = true; defer { exporting = false }
@@ -186,6 +238,21 @@ struct ThreadDetailView: View {
     }
     private func clearExport() {
         if let exported { try? FileManager.default.removeItem(at: exported.deletingLastPathComponent()) }; exported = nil
+    }
+}
+
+private struct MailDateLabel: View {
+    let value: String
+    private var date: Date? {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = parser.date(from: value) { return date }
+        parser.formatOptions = [.withInternetDateTime]
+        return parser.date(from: value)
+    }
+    var body: some View {
+        if let date { Text(date, format: .dateTime.year().month().day().hour().minute()) }
+        else { Text(value) }
     }
 }
 #endif
