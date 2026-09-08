@@ -7,7 +7,7 @@ Apple AI compatibility: if `ai-status` returns `NOT_FOUND`, a client can verify 
 | Operation      | Input                                                   | Result                                                                 |
 | -------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `accounts`     | `{}`                                                    | `{accounts: [...]}`                                                    |
-| `threads`      | `accountId?`, `folder?`, `q?`, `cursor?`, `maxResults?` | `{threads, cursor, warnings}`                                          |
+| `threads`      | `accountId?`, `folder?`, `category?`, `q?`, `cursor?`, `maxResults?` | `{threads, cursor, warnings}`                                  |
 | `thread`       | `id`                                                    | `{id, accountId, unread, starred, messages}`                            |
 | `attachments`  | `id` (message ID)                                       | `{attachments: [{attachmentId, filename, mimeType, size, body, ...}]}` |
 | `action`       | `ids`, `action`                                         | `{success: true}`                                                      |
@@ -17,12 +17,20 @@ Apple AI compatibility: if `ai-status` returns `NOT_FOUND`, a client can verify 
 | `send`         | outgoing mail                                           | existing unified send response; inspect `success`                      |
 | `sync`         | `accountId?`                                            | existing sync request acknowledgement                                  |
 | `events`       | `after?` (decimal string)                                | `{owner, cursor, events: [{id, threadId, accountId, sender, subject}]}`   |
+| `classification-status` | `{}`                                          | Shared synchronization/classification progress for the paired owner      |
+| `classification-settings` | `{}`                                        | `{enabled, defaults, settings}` with the owner's resource limits         |
+| `classification-save` | six bounded integer resource settings              | `{success, settings}`                                                     |
+| `classification-control` | `action: start | pause | restart`                 | `{success: true}`                                                         |
+| `mail-category` | owned `id`                                               | `{enabled, category}`                                                     |
+| `move-category` | owned `id`, concrete `category`                          | `{success: true}`                                                         |
 | `ai-status`    | `{}`                                                    | `{ready, name, model}` for the owner's active BYOK profile               |
 | `ai-read`      | `threadId`, `messageId`, `action`, `language`, `question?`, `history?` | `{text, translation}` using the shared web reader                 |
 | `ai-translation` | `threadId`, `messageId`                              | `{translation}` from the shared server cache, or `null`                 |
 | `ai-compose`   | `instructions`, `consent: true`                         | `{text, model}` for explicit review and application to the draft        |
 
-Folders: `inbox`, `starred`, `sent`, `draft`, `archive`, `spam`, `trash`. `trash` maps to the existing cache's `bin` folder. Actions: `read`, `unread`, `star`, `unstar`, `archive`, `trash`. There is no permanent deletion operation.
+Folders: `inbox`, `starred`, `sent`, `draft`, `archive`, `spam`, `trash`. `trash` maps to the existing cache's `bin` folder. Inbox categories are `primary`, `transactions`, `updates`, `promotions`; omitting `category` returns all mail. Categories require server-side local synchronization. Actions: `read`, `unread`, `star`, `unstar`, `archive`, `trash`. There is no permanent deletion operation.
+
+Classification settings use the same owner-scoped records as the web UI: `concurrency` (1–4), `batch_size` (1–50), `interval_seconds` (2–3600), `timeout_seconds` (5–120), `recent_days` (1–365) and `history_every_batches` (1–100). Native input is strict and cannot include an owner ID. The classifier reads persisted limits when admitting a new batch; running work finishes normally. AI fetch concurrency, response size and timeout enforcement remain on the server, so no provider credential or isolation primitive is copied to an Apple device.
 
 Preserve every returned ID and cursor exactly. IDs include mailbox ownership. A cursor is valid only for its original account, folder and search. Pages contain at most 30 entries; the apps request 20. Warnings represent partial mailbox failures and must remain visible.
 

@@ -1,3 +1,4 @@
+import { classificationSettingsSchema } from './mailboxes/classification-schema';
 import type { CachedTranslation } from './mailboxes/translations';
 import { mailboxId, splitMailboxId } from './mailboxes/ids';
 import type { IGetThreadResponse } from './driver/types';
@@ -12,6 +13,14 @@ import { z } from 'zod';
 type Caller = ReturnType<AppRouter['createCaller']>;
 const id = z.string().min(1).max(16000);
 const single = z.object({ id });
+const empty = z.object({}).strict();
+const nativeCategory = z.enum(['primary', 'transactions', 'updates', 'promotions']);
+const categoryLabels = {
+  primary: 'ZERO_CATEGORY_PRIMARY',
+  transactions: 'ZERO_CATEGORY_TRANSACTIONS',
+  updates: 'ZERO_CATEGORY_UPDATES',
+  promotions: 'ZERO_CATEGORY_PROMOTIONS',
+} as const;
 const address = z.object({ email: z.string().email(), name: z.string().optional() });
 const attachment = z
   .object({
@@ -116,6 +125,27 @@ export async function nativeMail(
   body: unknown,
 ): Promise<unknown> {
   switch (operation) {
+    case 'classification-status':
+      empty.parse(body);
+      return caller.mailboxes.syncStatus({});
+    case 'classification-settings':
+      empty.parse(body);
+      return caller.mailboxes.classificationSettings();
+    case 'classification-save':
+      return caller.mailboxes.saveClassificationSettings(classificationSettingsSchema.parse(body));
+    case 'classification-control': {
+      const input = z
+        .object({ action: z.enum(['start', 'pause', 'restart']) })
+        .strict()
+        .parse(body);
+      return caller.mailboxes.classify(input);
+    }
+    case 'mail-category':
+      return caller.mailboxes.category(single.strict().parse(body));
+    case 'move-category': {
+      const input = single.extend({ category: nativeCategory }).strict().parse(body);
+      return caller.mailboxes.moveCategory(input);
+    }
     case 'ai-status': {
       const overview = await caller.llm.list();
       const active = overview.profiles.find((profile) => profile.id === overview.activeId);
@@ -152,12 +182,16 @@ export async function nativeMail(
           q: z.string().max(2000).default(''),
           cursor: z.string().max(512000).default(''),
           maxResults: z.number().int().min(1).max(30).default(20),
+          category: nativeCategory.optional(),
         })
+        .strict()
+        .refine((value) => !value.category || value.folder === 'inbox')
         .parse(body);
+      const { category, ...listInput } = input;
       const page = await caller.mail.listThreads({
-        ...input,
+        ...listInput,
         folder: input.folder === 'trash' ? 'bin' : input.folder,
-        labelIds: [],
+        labelIds: category ? [categoryLabels[category]] : [],
       });
       return {
         threads: page.threads.map((item) => {

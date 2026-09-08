@@ -14,6 +14,11 @@ struct WatchMailboxView: View {
                 Picker("文件夹", selection: $store.folder) {
                     ForEach([MailFolder.inbox, .starred, .sent, .archive]) { Text($0.title).tag($0) }
                 }
+                if store.folder == .inbox {
+                    Picker("分类", selection: $store.category) {
+                        ForEach(MailCategory.allCases) { Text($0.title).tag($0) }
+                    }.accessibilityIdentifier("mailCategoryFilter")
+                }
                 Button("刷新") { Task { await store.refresh() } }.disabled(store.loading)
                 ForEach(store.warnings.indices, id: \.self) { index in Text(store.warnings[index].message).font(.caption).foregroundStyle(.orange) }
                 ForEach(store.threads) { thread in
@@ -62,6 +67,11 @@ struct WatchThreadView: View {
                     Button("回复") { store.reply(message) }
                     Button(thread.starred ? "取消星标" : "星标") { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } }
                     Button("标为未读") { Task { await store.act(.unread, id: thread.id) } }
+                    Menu("移动至分类") {
+                        ForEach(MailCategory.allCases.filter { $0 != .all }) { category in
+                            Button(category.title) { Task { await store.moveCategory(category, id: thread.id) } }
+                        }
+                    }
                     Button("归档") { Task { await store.act(.archive, id: thread.id) } }
                     Button("移到废纸篓", role: .destructive) { confirmTrash = true }
                 }.padding(.horizontal)

@@ -24,6 +24,81 @@ public enum MailFolder: String, CaseIterable, Identifiable, Codable, Sendable {
         switch self { case .inbox: return "tray"; case .starred: return "star"; case .sent: return "paperplane"; case .draft: return "doc"; case .archive: return "archivebox"; case .spam: return "exclamationmark.shield"; case .trash: return "trash" }
     }
 }
+public enum MailCategory: String, CaseIterable, Identifiable, Codable, Sendable {
+    case all, primary, transactions, updates, promotions
+    public var id: String { rawValue }
+    public var title: String {
+        switch self {
+        case .all: return "所有"
+        case .primary: return "主要"
+        case .transactions: return "交易"
+        case .updates: return "更新"
+        case .promotions: return "推广"
+        }
+    }
+    public var symbol: String {
+        switch self {
+        case .all: return "tray.full"
+        case .primary: return "tray"
+        case .transactions: return "creditcard"
+        case .updates: return "bell"
+        case .promotions: return "tag"
+        }
+    }
+}
+public struct MailCategoryState: Decodable, Sendable {
+    public let enabled: Bool
+    public let category: MailCategory?
+    public init(enabled: Bool, category: MailCategory?) {
+        self.enabled = enabled; self.category = category
+    }
+}
+public enum MailClassificationAction: String, Codable, Sendable { case start, pause, restart }
+public struct MailClassificationSettings: Codable, Sendable, Equatable {
+    public var concurrency: Int
+    public var batchSize: Int
+    public var intervalSeconds: Int
+    public var timeoutSeconds: Int
+    public var recentDays: Int
+    public var historyEveryBatches: Int
+    enum CodingKeys: String, CodingKey {
+        case concurrency
+        case batchSize = "batch_size"
+        case intervalSeconds = "interval_seconds"
+        case timeoutSeconds = "timeout_seconds"
+        case recentDays = "recent_days"
+        case historyEveryBatches = "history_every_batches"
+    }
+    public init(concurrency: Int, batchSize: Int, intervalSeconds: Int, timeoutSeconds: Int, recentDays: Int, historyEveryBatches: Int) {
+        self.concurrency = concurrency; self.batchSize = batchSize
+        self.intervalSeconds = intervalSeconds; self.timeoutSeconds = timeoutSeconds
+        self.recentDays = recentDays; self.historyEveryBatches = historyEveryBatches
+    }
+}
+public struct MailClassificationSettingsOverview: Decodable, Sendable {
+    public let enabled: Bool
+    public let defaults: MailClassificationSettings
+    public let settings: MailClassificationSettings
+    public init(enabled: Bool, defaults: MailClassificationSettings, settings: MailClassificationSettings) {
+        self.enabled = enabled; self.defaults = defaults; self.settings = settings
+    }
+}
+public struct MailClassificationAccountStatus: Decodable, Sendable, Identifiable {
+    public var id: String { accountId }
+    public let accountId: String
+    public let email: String
+    public let classificationTotal: Int
+    public let classifiedCount: Int
+    public let classificationError: String?
+    public let classificationPaused: Bool
+    public let classificationRunning: Bool
+    public let classificationRetryAt: String?
+}
+public struct MailClassificationStatus: Decodable, Sendable {
+    public let enabled: Bool
+    public let classifierOnline: Bool
+    public let accounts: [MailClassificationAccountStatus]
+}
 public struct MailSummary: Codable, Identifiable, Sendable, Hashable {
     public let id: String
     public let accountId: String
@@ -98,14 +173,15 @@ public struct SavedDraft: Decodable, Sendable {
     public let attachments: [MailAttachment]?
     public let content: String?
 }
-public enum MailFailure: Error, LocalizedError {
-    case invalidRecipients, invalidAttachment, oversizedAttachments, sendRejected
+public enum MailFailure: Error, LocalizedError, Equatable {
+    case invalidRecipients, invalidAttachment, oversizedAttachments, sendRejected, invalidCategory
     public var errorDescription: String? {
         switch self {
         case .invalidRecipients: return "请输入有效的邮箱地址，多个地址用逗号分隔。"
         case .invalidAttachment: return "无法读取附件。"
         case .oversizedAttachments: return "附件总大小不能超过 15 MB，最多 20 个。"
         case .sendRejected: return "服务器未确认发送成功，请检查已发送文件夹。"
+        case .invalidCategory: return "请选择具体的邮件分类。"
         }
     }
 }

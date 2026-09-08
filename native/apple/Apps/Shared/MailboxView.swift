@@ -1,6 +1,7 @@
 #if !os(watchOS)
 import SwiftUI
 import ZeroMail
+import ZeroPairing
 
 struct MailboxView: View {
     @ObservedObject var store: MailStore
@@ -74,6 +75,15 @@ struct ThreadListView: View {
     @ObservedObject var store: MailStore
     var body: some View {
         List(selection: $store.selectedID) {
+            if store.folder == .inbox {
+                Picker("邮件分类", selection: $store.category) {
+                    ForEach(MailCategory.allCases) { category in
+                        Label(category.title, systemImage: category.symbol).tag(category)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("mailCategoryFilter")
+            }
             ForEach(store.warnings.indices, id: \.self) { index in
                 Label(store.warnings[index].email + "：" + store.warnings[index].message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
             }
@@ -82,6 +92,11 @@ struct ThreadListView: View {
                     .contextMenu {
                         Button(thread.unread ? "标为已读" : "标为未读") { Task { await store.act(thread.unread ? .read : .unread, id: thread.id) } }
                         Button(thread.starred ? "取消星标" : "添加星标") { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } }
+                        Menu("移动至分类") {
+                            ForEach(MailCategory.allCases.filter { $0 != .all }) { category in
+                                Button(category.title) { Task { await store.moveCategory(category, id: thread.id) } }
+                            }
+                        }
                         Button("归档") { Task { await store.act(.archive, id: thread.id) } }
                         Button("移到废纸篓", role: .destructive) { Task { await store.act(.trash, id: thread.id) } }
                     }
@@ -149,6 +164,7 @@ struct ThreadDetailView: View {
             else if let thread = store.detail {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        MailCategoryEditor(store: store, id: thread.id)
                         ForEach(thread.messages) { message in
                             VStack(alignment: .leading, spacing: 12) {
                                 Text(message.subject.isEmpty ? "无主题" : message.subject).font(.title2.bold()).textSelection(.enabled)
@@ -191,6 +207,11 @@ struct ThreadDetailView: View {
                     Button { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } } label: { Label("星标", systemImage: thread.starred ? "star.fill" : "star") }
                     Button { Task { await store.act(.unread, id: thread.id) } } label: { Label("标为未读", systemImage: "envelope.badge") }
                     Button { Task { await store.act(.archive, id: thread.id) } } label: { Label("归档", systemImage: "archivebox") }
+                    Menu {
+                        ForEach(MailCategory.allCases.filter { $0 != .all }) { category in
+                            Button(category.title) { Task { await store.moveCategory(category, id: thread.id) } }
+                        }
+                    } label: { Label("分类", systemImage: "tag") }
                     Button { Task { await store.act(.trash, id: thread.id) } } label: { Label("移到废纸篓", systemImage: "trash") }.accessibilityIdentifier("trashThread")
                 }
             } else {
@@ -238,6 +259,60 @@ struct ThreadDetailView: View {
     }
     private func clearExport() {
         if let exported { try? FileManager.default.removeItem(at: exported.deletingLastPathComponent()) }; exported = nil
+    }
+}
+
+private struct MailCategoryEditor: View {
+    @ObservedObject var store: MailStore
+    let id: String
+    @State private var state: MailCategoryState?
+    @State private var busy = false
+    @State private var failure: String?
+    var body: some View {
+        Group {
+            if state?.enabled == true {
+                HStack {
+                    Label("邮件分类", systemImage: "tag")
+                    Spacer()
+                    Menu(state?.category?.title ?? "未分类") {
+                        ForEach(MailCategory.allCases.filter { $0 != .all }) { category in
+                            Button {
+                                Task { await move(category) }
+                            } label: {
+                                if state?.category == category { Label(category.title, systemImage: "checkmark") }
+                                else { Text(category.title) }
+                            }
+                        }
+                    }.disabled(busy)
+                }
+                if let failure { Text(failure).font(.caption).foregroundStyle(.red) }
+            }
+        }
+        .task(id: id) { await load() }
+    }
+    private func load() async {
+        guard let client = store.client else { return }
+        do {
+            let value = try await client.category(id: id)
+            guard store.client === client, store.detail?.id == id, !Task.isCancelled else { return }
+            state = value; failure = nil
+        } catch {
+            guard !Task.isCancelled, store.client === client else { return }
+            if error as? PairingFailure == .signedOut { store.report(error) }
+        }
+    }
+    private func move(_ category: MailCategory) async {
+        guard let client = store.client, !busy else { return }
+        busy = true; defer { busy = false }
+        do {
+            try await client.moveCategory(id: id, to: category)
+            guard store.client === client else { return }
+            state = MailCategoryState(enabled: true, category: category)
+            failure = nil; await store.reload()
+        } catch {
+            failure = "无法更新分类，请先同步邮箱后重试。"
+            if error as? PairingFailure == .signedOut { store.report(error) }
+        }
     }
 }
 

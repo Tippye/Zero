@@ -1,18 +1,9 @@
+import { classificationSettingsSchema, type ClassificationSettings } from './classification-schema';
 import { syncEnabled, withDb } from './cache';
 import { TRPCError } from '@trpc/server';
 import { env } from '../../env';
-import { z } from 'zod';
 
-export const classificationSettingsSchema = z
-  .object({
-    concurrency: z.number().int().min(1).max(4),
-    batch_size: z.number().int().min(1).max(50),
-    interval_seconds: z.number().int().min(2).max(3600),
-    timeout_seconds: z.number().int().min(5).max(120),
-    recent_days: z.number().int().min(1).max(365),
-    history_every_batches: z.number().int().min(1).max(100),
-  })
-  .strict();
+export { classificationSettingsSchema } from './classification-schema';
 
 function defaultSettings() {
   return classificationSettingsSchema.parse({
@@ -39,10 +30,7 @@ export async function classificationSettings(owner: string) {
   });
 }
 
-export async function saveClassificationSettings(
-  owner: string,
-  input: z.infer<typeof classificationSettingsSchema>,
-) {
+export async function saveClassificationSettings(owner: string, input: ClassificationSettings) {
   if (!syncEnabled()) throw new TRPCError({ code: 'PRECONDITION_FAILED' });
   const settings = classificationSettingsSchema.parse(input);
   await withDb((sql) =>

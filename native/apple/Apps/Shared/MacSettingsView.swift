@@ -116,11 +116,12 @@ struct MacSettingsView: View {
     @ObservedObject private var session = SettingsSession.shared
     @State private var selection = SettingsTab.general
     private enum SettingsTab: Hashable {
-        case general, accounts, viewing, notifications, devices
+        case general, accounts, classification, viewing, notifications, devices
         var height: CGFloat {
             switch self {
             case .general: return 225
             case .accounts: return 420
+            case .classification: return 650
             case .viewing: return 225
             case .notifications: return 430
             case .devices: return 480
@@ -137,6 +138,12 @@ struct MacSettingsView: View {
                 } else { unpaired("在邮件主窗口连接服务器，即可管理邮箱账户。") }
             }
             .tabItem { Label("账户", systemImage: "person.crop.circle") }.tag(SettingsTab.accounts)
+            settingsForm {
+                if let store = session.store {
+                    ClassificationSettingsSections(store: store).id(ObjectIdentifier(store))
+                } else { unpaired("在邮件主窗口完成配对后可管理 AI 分类与资源限制。") }
+            }
+            .tabItem { Label("分类", systemImage: "tag") }.tag(SettingsTab.classification)
             ViewingMailSettings()
                 .tabItem { Label("查看", systemImage: "text.alignleft") }.tag(SettingsTab.viewing)
             settingsForm { NotificationSettingsSection() }

@@ -31,6 +31,7 @@ final class MailStore: ObservableObject {
     @Published var accounts: [MailAccount] = []
     @Published var accountID = ""
     @Published var folder: MailFolder = .inbox
+    @Published var category: MailCategory = .all
     @Published var query = ""
     @Published var threads: [MailSummary] = []
     @Published var warnings: [MailWarning] = []
@@ -72,7 +73,7 @@ final class MailStore: ObservableObject {
     private var sceneActive = false
     private var polling: Task<Void, Never>?
     private var pendingLink: MailLink?
-    var filterKey: String { accountID + "|" + folder.rawValue + "|" + query }
+    var filterKey: String { accountID + "|" + folder.rawValue + "|" + (folder == .inbox ? category.rawValue : "all") + "|" + query }
 
     func start() async {
         guard !started else { return }; started = true
@@ -109,11 +110,12 @@ final class MailStore: ObservableObject {
         listRevision += 1
         let revision = listRevision, session = sessionRevision
         let account = accountID.isEmpty ? nil : accountID, folder = folder, query = query
+        let category = folder == .inbox ? category : nil
         let next = more ? cursor : nil
         loading = true
         defer { if revision == listRevision { loading = false } }
         do {
-            let page = try await client.threads(accountID: account, folder: folder, query: query, cursor: next)
+            let page = try await client.threads(accountID: account, folder: folder, category: category, query: query, cursor: next)
             guard revision == listRevision, session == sessionRevision, !Task.isCancelled else { return }
             if more {
                 var seen = Set(threads.map(\.id)); threads += page.threads.filter { seen.insert($0.id).inserted }
@@ -169,6 +171,14 @@ final class MailStore: ObservableObject {
                 guard session == sessionRevision, selectedID == id else { return }
                 detail = updated
             }
+            await reload()
+        } catch { if session == sessionRevision { report(error) } }
+    }
+    func moveCategory(_ category: MailCategory, id: String) async {
+        guard let client, category != .all else { return }; let session = sessionRevision
+        do {
+            try await client.moveCategory(id: id, to: category)
+            guard session == sessionRevision else { return }
             await reload()
         } catch { if session == sessionRevision { report(error) } }
     }
@@ -439,7 +449,7 @@ final class MailStore: ObservableObject {
         sessionRevision += 1; listRevision += 1; readRevision += 1
         mailboxVisible = false
         accounts = []; threads = []; warnings = []; selectedID = nil; detail = nil; composer = nil
-        accountID = ""; query = ""; folder = .inbox; cursor = nil; loading = false; reading = false; showSettings = false
+        accountID = ""; query = ""; folder = .inbox; category = .all; cursor = nil; loading = false; reading = false; showSettings = false
     }
     private static func hideClaimedDrafts() {
         windows.removeAll { $0.store == nil }

@@ -23,12 +23,170 @@ struct DeviceSettingsView: View {
                 } footer: { Text("阅读、列表显示和提醒声音可在系统设置中调整。") }
                 #endif
                 AccountSettingsSections(store: store)
+                ClassificationSettingsSections(store: store)
                 NotificationSettingsSection()
                 DeviceManagementSections(store: store)
             }
             .navigationTitle("设置")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { dismiss() }.accessibilityIdentifier("closeSettings") } }
         }
+    }
+}
+
+/// Server-backed classification and resource limits shared by Mac, iPhone, iPad and Watch.
+struct ClassificationSettingsSections: View {
+    @ObservedObject var store: MailStore
+    @State private var status: MailClassificationStatus?
+    @State private var overview: MailClassificationSettingsOverview?
+    @State private var draft: MailClassificationSettings?
+    @State private var aiReady = false
+    @State private var busy = false
+    @State private var loaded = false
+    @State private var failure: String?
+    private var total: Int { status?.accounts.reduce(0) { $0 + $1.classificationTotal } ?? 0 }
+    private var completed: Int { status?.accounts.reduce(0) { $0 + $1.classifiedCount } ?? 0 }
+    private var paused: Bool { status?.accounts.isEmpty == false && status?.accounts.allSatisfy(\.classificationPaused) == true }
+    private var running: Bool { status?.accounts.contains(where: \.classificationRunning) == true }
+    private var enabled: Bool { status?.enabled == true && overview?.enabled == true }
+    private var primaryAction: MailClassificationAction {
+        paused ? .start : completed == total && total > 0 ? .restart : .start
+    }
+    private var primaryActionTitle: String {
+        paused ? "继续分类" : completed == total && total > 0 ? "重新分类" : "立即分类"
+    }
+
+    var body: some View {
+        Group {
+            if store.phase == .ready {
+                Section("AI 邮件分类") {
+                    if loaded, !enabled {
+                        Text("服务器尚未启用后台邮件同步，无法使用本地分类。").foregroundStyle(.secondary)
+                    } else if let status {
+                        Text(statusText(status)).font(.callout)
+                        ProgressView(value: Double(completed), total: Double(max(total, 1)))
+                        Text("已分类 \(completed) / \(total)").font(.caption).foregroundStyle(.secondary)
+                        ForEach(status.accounts.filter { $0.classificationError != nil && !$0.classificationPaused }) { account in
+                            Text(account.email + "：" + classificationError(account.classificationError!))
+                                .font(.caption).foregroundStyle(.orange)
+                        }
+                        if !aiReady { Text("请先在网页设置中配置并启用 LLM 服务商。").font(.caption).foregroundStyle(.secondary) }
+                        HStack {
+                            Button(primaryActionTitle) {
+                                Task { await control(primaryAction) }
+                            }
+                            .disabled(busy || total == 0 || !aiReady || !status.classifierOnline || running)
+                            Button("暂停", role: .destructive) { Task { await control(.pause) } }
+                                .disabled(busy || paused || total == 0)
+                        }
+                    } else { ProgressView("载入分类状态…") }
+                    if let failure { Text(failure).font(.caption).foregroundStyle(.red) }
+                    Button("刷新分类状态") { Task { await load() } }.disabled(busy)
+                }
+                if enabled, let limits = draft {
+                    Section("分类资源限制") {
+                        Stepper("并行请求：\(limits.concurrency)", value: intBinding(\.concurrency), in: 1...4)
+                        Stepper("每批邮件：\(limits.batchSize)", value: intBinding(\.batchSize), in: 1...50)
+                        Stepper("批次间隔：\(limits.intervalSeconds) 秒", value: intBinding(\.intervalSeconds), in: 2...3600)
+                        Stepper("请求超时：\(limits.timeoutSeconds) 秒", value: intBinding(\.timeoutSeconds), in: 5...120)
+                        Stepper("优先最近：\(limits.recentDays) 天", value: intBinding(\.recentDays), in: 1...365)
+                        Stepper("历史批次频率：每 \(limits.historyEveryBatches) 批", value: intBinding(\.historyEveryBatches), in: 1...100)
+                        Text("单轮最多处理 \(limits.concurrency * limits.batchSize) 封邮件。限制保存在服务器并应用于所有 Apple 设备及网页端；读取与 AI 请求继续由服务器隔离并限制资源。")
+                            .font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button("保存限制") { Task { await save() } }
+                                .disabled(busy || draft == overview?.settings)
+                            Button("恢复服务器默认值") { draft = overview?.defaults }.disabled(busy)
+                        }
+                    }
+                }
+            }
+        }
+        .task(id: store.phase) {
+            guard store.phase == .ready else { reset(); return }
+            await load()
+            while !Task.isCancelled, store.phase == .ready {
+                do { try await Task.sleep(nanoseconds: running ? 5_000_000_000 : 30_000_000_000) }
+                catch { return }
+                await load(refreshLimits: false)
+            }
+        }
+        .onChange(of: store.pairing.map(ObjectIdentifier.init)) { _ in reset() }
+    }
+
+    private func intBinding(_ keyPath: WritableKeyPath<MailClassificationSettings, Int>) -> Binding<Int> {
+        Binding(get: { draft?[keyPath: keyPath] ?? 1 }, set: {
+            guard var value = draft else { return }
+            value[keyPath: keyPath] = $0
+            draft = value
+        })
+    }
+    private func statusText(_ value: MailClassificationStatus) -> String {
+        if !value.classifierOnline { return "分类服务离线，已缓存邮件仍可查看。" }
+        if paused { return "分类已暂停，继续后将从当前进度开始。" }
+        if total == 0 { return "暂时没有可分类的收件箱邮件。" }
+        if completed == total { return "分类已完成。" }
+        return running ? "正在分类…" : "等待分类服务处理。"
+    }
+    private func classificationError(_ code: String) -> String {
+        switch code {
+        case "INVALID_RESPONSE": return "模型返回的分类格式不正确。"
+        case "OUTPUT_LIMIT": return "模型输出被截断，服务器将缩小批次后重试。"
+        case "AUTH_FAILED", "CONFIGURATION": return "模型配置或凭据无效。"
+        case "RATE_LIMIT": return "服务商限制了请求频率。"
+        case "TIMEOUT": return "分类请求超时。"
+        default: return "分类请求失败，请检查当前模型及服务。"
+        }
+    }
+    private func load(refreshLimits: Bool = true) async {
+        guard let client = store.client else { return }
+        do {
+            async let nextStatus = client.classificationStatus()
+            async let provider = client.aiStatus()
+            if refreshLimits || overview == nil {
+                async let nextOverview = client.classificationSettings()
+                let values = try await (nextStatus, nextOverview, provider)
+                guard store.client === client, store.phase == .ready, !Task.isCancelled else { return }
+                status = values.0; overview = values.1; draft = values.1.settings; aiReady = values.2.ready
+            } else {
+                let values = try await (nextStatus, provider)
+                guard store.client === client, store.phase == .ready, !Task.isCancelled else { return }
+                status = values.0; aiReady = values.1.ready
+            }
+            loaded = true; failure = nil
+        } catch {
+            guard !Task.isCancelled, store.client === client else { return }
+            loaded = true; failure = settingsFailure(error)
+            if error as? PairingFailure == .signedOut { store.report(error) }
+        }
+    }
+    private func control(_ action: MailClassificationAction) async {
+        guard let client = store.client, !busy else { return }
+        busy = true; defer { busy = false }
+        do { try await client.controlClassification(action); await load(refreshLimits: false) }
+        catch { failure = settingsFailure(error); if error as? PairingFailure == .signedOut { store.report(error) } }
+    }
+    private func save() async {
+        guard let client = store.client, let draft, !busy else { return }
+        busy = true; defer { busy = false }
+        do {
+            let saved = try await client.saveClassificationSettings(draft)
+            guard store.client === client else { return }
+            self.draft = saved
+            if let overview { self.overview = MailClassificationSettingsOverview(enabled: overview.enabled, defaults: overview.defaults, settings: saved) }
+            failure = nil
+        } catch { failure = settingsFailure(error); if error as? PairingFailure == .signedOut { store.report(error) } }
+    }
+    private func settingsFailure(_ error: Error) -> String {
+        if let failure = error as? PairingFailure {
+            if failure == .signedOut { return "登录已过期，请重新配对。" }
+            if case .server("NOT_FOUND") = failure { return "服务器版本尚未提供 Apple 分类管理接口。" }
+            if case .server("PRECONDITION_FAILED") = failure { return "服务器尚未启用后台邮件同步。" }
+            if case .server("BAD_REQUEST") = failure { return "资源限制超出服务器允许范围。" }
+        }
+        return "无法载入或保存分类设置，请稍后重试。"
+    }
+    private func reset() {
+        status = nil; overview = nil; draft = nil; aiReady = false; busy = false; loaded = false; failure = nil
     }
 }
 

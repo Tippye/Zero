@@ -26,6 +26,57 @@ private func replyThread(id: String, owner: String? = nil, sender: String = "sen
     return try JSONDecoder().decode(MailThread.self, from: JSONSerialization.data(withJSONObject: value))
 }
 final class MailClientTests: XCTestCase {
+    func testClassificationUsesSharedOwnerScopedAPIAndSnakeCaseResourceLimits() async throws {
+        let pairing = try PairingClient(server: URL(string: "https://mail.example")!, store: TestCredentials(), transport: { request in
+            let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
+            switch request.url!.lastPathComponent {
+            case "classification-status":
+                XCTAssertTrue(body.isEmpty)
+                return result(request, #"{"enabled":true,"classifierOnline":true,"accounts":[{"accountId":"account","email":"me@example.test","classificationTotal":20,"classifiedCount":12,"classificationError":null,"classificationPaused":false,"classificationRunning":true,"classificationRetryAt":null}]}"#)
+            case "classification-settings":
+                XCTAssertTrue(body.isEmpty)
+                return result(request, #"{"enabled":true,"defaults":{"concurrency":1,"batch_size":10,"interval_seconds":10,"timeout_seconds":60,"recent_days":7,"history_every_batches":5},"settings":{"concurrency":2,"batch_size":20,"interval_seconds":15,"timeout_seconds":45,"recent_days":14,"history_every_batches":4}}"#)
+            case "classification-save":
+                XCTAssertEqual(body["concurrency"] as? Int, 3)
+                XCTAssertEqual(body["batch_size"] as? Int, 25)
+                XCTAssertEqual(body["interval_seconds"] as? Int, 30)
+                XCTAssertEqual(body["timeout_seconds"] as? Int, 50)
+                XCTAssertEqual(body["recent_days"] as? Int, 21)
+                XCTAssertEqual(body["history_every_batches"] as? Int, 6)
+                XCTAssertNil(body["batchSize"])
+                return result(request, #"{"success":true,"settings":{"concurrency":3,"batch_size":25,"interval_seconds":30,"timeout_seconds":50,"recent_days":21,"history_every_batches":6}}"#)
+            case "classification-control":
+                XCTAssertEqual(body as? [String: String], ["action": "restart"])
+                return result(request, #"{"success":true}"#)
+            case "threads":
+                XCTAssertEqual(body["category"] as? String, "transactions")
+                return result(request, #"{"threads":[],"cursor":null,"warnings":[]}"#)
+            case "mail-category":
+                XCTAssertEqual(body["id"] as? String, "mbx.account.mail")
+                return result(request, #"{"enabled":true,"category":"updates"}"#)
+            case "move-category":
+                XCTAssertEqual(body["id"] as? String, "mbx.account.mail")
+                XCTAssertEqual(body["category"] as? String, "primary")
+                return result(request, #"{"success":true}"#)
+            default:
+                XCTFail("Unexpected classification operation")
+                return result(request, "{}")
+            }
+        })
+        let client = MailClient(pairing: pairing)
+        let status = try await client.classificationStatus()
+        XCTAssertEqual(status.accounts.first?.classifiedCount, 12)
+        let overview = try await client.classificationSettings()
+        XCTAssertEqual(overview.settings.batchSize, 20)
+        let limits = MailClassificationSettings(concurrency: 3, batchSize: 25, intervalSeconds: 30, timeoutSeconds: 50, recentDays: 21, historyEveryBatches: 6)
+        XCTAssertEqual(try await client.saveClassificationSettings(limits), limits)
+        try await client.controlClassification(.restart)
+        _ = try await client.threads(category: .transactions)
+        XCTAssertEqual(try await client.category(id: "mbx.account.mail").category, .updates)
+        try await client.moveCategory(id: "mbx.account.mail", to: .primary)
+        do { try await client.moveCategory(id: "mbx.account.mail", to: .all); XCTFail("All is not a writable category") }
+        catch { XCTAssertEqual(error as? MailFailure, .invalidCategory) }
+    }
     func testNativeEventFeedUsesAuthenticatedPOSTAndPreservesStringCursor() async throws {
         let cursor = "9007199254740993"
         let pairing = try PairingClient(server: URL(string: "https://mail.example")!, store: TestCredentials(), transport: { request in

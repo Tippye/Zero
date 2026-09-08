@@ -45,6 +45,72 @@ const outgoing = {
   operationId: '00000000-0000-4000-8000-000000000001',
 };
 describe('native mail boundary', () => {
+  it('exposes owner-scoped classification controls, filters and bounded resource settings', async () => {
+    const syncStatus = vi.fn().mockResolvedValue({ enabled: true, accounts: [] });
+    const classificationSettings = vi.fn().mockResolvedValue({
+      enabled: true,
+      defaults: {},
+      settings: {},
+    });
+    const saveClassificationSettings = vi.fn().mockImplementation(async (input) => ({
+      success: true,
+      settings: input,
+    }));
+    const classify = vi.fn().mockResolvedValue({ success: true });
+    const category = vi.fn().mockResolvedValue({ enabled: true, category: 'updates' });
+    const moveCategory = vi.fn().mockResolvedValue({ success: true });
+    const listThreads = vi.fn().mockResolvedValue({ threads: [], nextPageToken: null });
+    const caller = {
+      mailboxes: {
+        syncStatus,
+        classificationSettings,
+        saveClassificationSettings,
+        classify,
+        category,
+        moveCategory,
+      },
+      mail: { listThreads },
+    } as unknown as Caller;
+    const limits = {
+      concurrency: 2,
+      batch_size: 20,
+      interval_seconds: 15,
+      timeout_seconds: 45,
+      recent_days: 14,
+      history_every_batches: 4,
+    };
+    await nativeMail(caller, 'classification-status', {});
+    await nativeMail(caller, 'classification-settings', {});
+    expect(await nativeMail(caller, 'classification-save', limits)).toMatchObject({
+      settings: limits,
+    });
+    await nativeMail(caller, 'classification-control', { action: 'restart' });
+    await nativeMail(caller, 'mail-category', { id: 'mbx.account.mail' });
+    await nativeMail(caller, 'move-category', {
+      id: 'mbx.account.mail',
+      category: 'primary',
+    });
+    await nativeMail(caller, 'threads', { folder: 'inbox', category: 'transactions' });
+    expect(syncStatus).toHaveBeenCalledWith({});
+    expect(classificationSettings).toHaveBeenCalledWith();
+    expect(saveClassificationSettings).toHaveBeenCalledWith(limits);
+    expect(classify).toHaveBeenCalledWith({ action: 'restart' });
+    expect(category).toHaveBeenCalledWith({ id: 'mbx.account.mail' });
+    expect(moveCategory).toHaveBeenCalledWith({ id: 'mbx.account.mail', category: 'primary' });
+    expect(listThreads).toHaveBeenCalledWith(
+      expect.objectContaining({ labelIds: ['ZERO_CATEGORY_TRANSACTIONS'] }),
+    );
+    for (const [operation, input] of [
+      ['classification-status', { userId: 'other' }],
+      ['classification-save', { ...limits, concurrency: 5 }],
+      ['classification-control', { action: 'delete' }],
+      ['mail-category', { id: 'mbx.account.mail', owner: 'other' }],
+      ['move-category', { id: 'mbx.account.mail', category: 'private' }],
+      ['threads', { folder: 'inbox', category: 'private' }],
+      ['threads', { folder: 'sent', category: 'primary' }],
+    ] as const)
+      await expect(nativeMail(caller, operation, input)).rejects.toThrow();
+  });
   it('exposes only AI availability and model display fields', async () => {
     const caller = {
       llm: {
