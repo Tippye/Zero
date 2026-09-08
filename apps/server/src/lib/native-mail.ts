@@ -1,6 +1,8 @@
+import type { CachedTranslation } from './mailboxes/translations';
 import { mailboxId, splitMailboxId } from './mailboxes/ids';
 import type { IGetThreadResponse } from './driver/types';
 import type { inferRouterInputs } from '@trpc/server';
+import { readerInput } from './mail-reader-ai';
 import { stripHtml } from 'string-strip-html';
 import type { ParsedMessage } from '../types';
 import { TRPCError } from '@trpc/server';
@@ -60,6 +62,8 @@ const outgoing = z.object({
   operationId: z.string().uuid(),
 });
 const textBody = (html: string) => stripHtml(html).result;
+const nativeTranslation = (value: CachedTranslation | null) =>
+  value ? { ...value, text: textBody(value.html) } : null;
 type DraftPart = { filename?: string; body?: { attachmentId?: string }; parts?: DraftPart[] };
 function draftAttachmentIds(part: DraftPart | undefined): string[] {
   if (!part) return [];
@@ -95,6 +99,10 @@ function message(value: ParsedMessage) {
 export function nativeThread(id: string, value: IGetThreadResponse) {
   return {
     id,
+    accountId:
+      splitMailboxId(id)?.accountId ||
+      value.messages.map((message) => splitMailboxId(message.id)?.accountId).find(Boolean) ||
+      null,
     unread: value.hasUnread,
     starred: value.labels.some((l) => l.name === 'STARRED'),
     messages: value.messages.map(message),
@@ -108,6 +116,30 @@ export async function nativeMail(
   body: unknown,
 ): Promise<unknown> {
   switch (operation) {
+    case 'ai-status': {
+      const overview = await caller.llm.list();
+      const active = overview.profiles.find((profile) => profile.id === overview.activeId);
+      // The native reader needs availability and a display label, never provider credentials.
+      return { ready: overview.ready, name: active?.name || '', model: active?.model || '' };
+    }
+    case 'ai-read': {
+      // Reuse the web reader's bounds, owner checks, prompts and translation cache.
+      const result = await caller.ai.read(readerInput.parse(body));
+      return { text: result.text, translation: nativeTranslation(result.translation) };
+    }
+    case 'ai-translation': {
+      const input = z.object({ threadId: id, messageId: id }).parse(body);
+      return { translation: nativeTranslation(await caller.ai.translation(input)) };
+    }
+    case 'ai-compose': {
+      const input = z
+        .object({ instructions: z.string().trim().min(1).max(8000), consent: z.literal(true) })
+        .strict()
+        .parse(body);
+      // This existing task uses the owner's BYOK profile without requiring an IMAP account.
+      // It returns draft text only; sending remains a separate explicit operation.
+      return caller.imap.generate({ task: 'compose', ...input });
+    }
     case 'accounts':
       return { accounts: await caller.mailboxes.accounts() };
     case 'threads': {

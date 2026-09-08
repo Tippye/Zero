@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "55974521E4C095375442D793A3FC2496"
+               BlueprintIdentifier = "D3A78E4F1C99F3DA5725FDEABF42389F"
                BuildableName = "ZeroWatch.app"
                BlueprintName = "ZeroWatch"
                ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "55974521E4C095375442D793A3FC2496"
+            BlueprintIdentifier = "D3A78E4F1C99F3DA5725FDEABF42389F"
             BuildableName = "ZeroWatch.app"
             BlueprintName = "ZeroWatch"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -53,7 +53,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "55974521E4C095375442D793A3FC2496"
+            BlueprintIdentifier = "D3A78E4F1C99F3DA5725FDEABF42389F"
             BuildableName = "ZeroWatch.app"
             BlueprintName = "ZeroWatch"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -70,7 +70,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "55974521E4C095375442D793A3FC2496"
+            BlueprintIdentifier = "D3A78E4F1C99F3DA5725FDEABF42389F"
             BuildableName = "ZeroWatch.app"
             BlueprintName = "ZeroWatch"
             ReferencedContainer = "container:ZeroMail.xcodeproj">

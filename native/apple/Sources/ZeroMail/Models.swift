@@ -83,6 +83,7 @@ public struct MailMessage: Codable, Identifiable, Sendable {
 }
 public struct MailThread: Codable, Identifiable, Sendable {
     public let id: String
+    public let accountId: String?
     public let unread: Bool
     public let starred: Bool
     public let messages: [MailMessage]
@@ -135,7 +136,7 @@ public struct OutgoingMail: Codable, Sendable {
     public var operationId: String
 }
 
-public struct MailComposer: Codable, Identifiable, Sendable {
+public struct MailComposer: Codable, Identifiable, Sendable, Equatable {
     public var id = UUID()
     public var accountId = ""
     public var to = ""
@@ -148,6 +149,8 @@ public struct MailComposer: Codable, Identifiable, Sendable {
     public var attachments: [OutgoingAttachment] = []
     public var threadId: String?
     public var draftId: String?
+    public var sharedImportID: UUID?
+    public var deliveryUncertain: Bool?
     public var headers: [String: String] = [:]
     public init(accountId: String = "") { self.accountId = accountId }
     public static func recipients(_ value: String) throws -> [MailAddress] {
@@ -169,10 +172,21 @@ public struct MailComposer: Codable, Identifiable, Sendable {
         // Reply-To may contain a display name. Only accept a single mailbox here.
         let reply = message.replyTo ?? message.sender.email
         let extracted = reply.range(of: #"<([^<>]+)>"#, options: .regularExpression).map { String(reply[$0].dropFirst().dropLast()) } ?? reply
-        result.to = (try? recipients(extracted))?.first?.email ?? message.sender.email
-        if all {
-            var seen = Set([account.email.lowercased(), result.to.lowercased()])
-            result.cc = (message.to + message.cc).filter { seen.insert($0.email.lowercased()).inserted }.map(\.email).joined(separator: ", ")
+        let ownEmail = account.email.lowercased()
+        if message.sender.email.lowercased() == ownEmail {
+            // Replying to a sent message continues with its original recipients, never ourselves.
+            var seen = Set([ownEmail])
+            let originalTo = message.to.filter { seen.insert($0.email.lowercased()).inserted }
+            result.to = (all ? originalTo : Array(originalTo.prefix(1))).map(\.email).joined(separator: ", ")
+            if all { result.cc = message.cc.filter { seen.insert($0.email.lowercased()).inserted }.map(\.email).joined(separator: ", ") }
+        } else {
+            let parsed = try? recipients(extracted)
+            let target = parsed?.count == 1 ? (parsed?.first?.email ?? message.sender.email) : message.sender.email
+            result.to = target.lowercased() == ownEmail ? message.sender.email : target
+            if all {
+                var seen = Set([ownEmail, result.to.lowercased()])
+                result.cc = (message.to + message.cc).filter { seen.insert($0.email.lowercased()).inserted }.map(\.email).joined(separator: ", ")
+            }
         }
         result.subject = message.subject.lowercased().hasPrefix("re:") ? message.subject : "Re: " + message.subject
         result.threadId = threadID

@@ -50,6 +50,12 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
   sources = Dir['Apps/Shared/*.swift'] + (platform == :watchos ? Dir['Apps/Watch/*.swift'] : Dir['Apps/Mail/*.swift'])
   target.add_file_references(sources.sort.map { |path| reference(project, references, path) })
   target.resources_build_phase.add_file_reference(reference(project, references, 'Configuration/PrivacyInfo.xcprivacy'))
+  target.resources_build_phase.add_file_reference(reference(project, references, 'Configuration/Assets.xcassets'))
+  if platform == :ios
+    settings = reference(project, references, 'Configuration/Settings.bundle')
+    settings.last_known_file_type = 'wrapper.plug-in'
+    target.resources_build_phase.add_file_reference(settings)
+  end
   %w[ZeroPairing ZeroMail].each do |product|
     dependency = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
     dependency.product_name = product
@@ -72,21 +78,29 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
   else
     info['WKApplication'] = true
     info['WKWatchOnly'] = true
-    info['WKRunsIndependentlyOfCompanionApp'] = true
   end
   plist = "Configuration/#{name}-Info.plist"
   write_plist(plist, info)
   reference(project, references, plist)
+  debug_plist = "Configuration/#{name}-Debug-Info.plist"
+  debug_info = info.merge('NSAppTransportSecurity' => {
+    'NSAllowsArbitraryLoads' => false,
+    'NSAllowsLocalNetworking' => true,
+    'NSExceptionDomains' => { 'localhost' => { 'NSExceptionAllowsInsecureHTTPLoads' => true, 'NSIncludesSubdomains' => false } }
+  })
+  write_plist(debug_plist, debug_info)
+  reference(project, references, debug_plist)
   target.build_configurations.each do |config|
     config.build_settings.merge!({
       'PRODUCT_BUNDLE_IDENTIFIER' => "org.zero.mail.#{suffix}", 'PRODUCT_NAME' => name,
       'SWIFT_VERSION' => '5.0', 'SWIFT_STRICT_CONCURRENCY' => 'targeted',
       'MARKETING_VERSION' => '0.1.0', 'CURRENT_PROJECT_VERSION' => '1',
-      'INFOPLIST_FILE' => plist, 'GENERATE_INFOPLIST_FILE' => 'NO',
+      'INFOPLIST_FILE' => config.name == 'Debug' ? debug_plist : plist, 'GENERATE_INFOPLIST_FILE' => 'NO',
       'CODE_SIGN_STYLE' => 'Automatic', 'SUPPORTED_PLATFORMS' => platforms,
       'TARGETED_DEVICE_FAMILY' => family, 'ENABLE_USER_SCRIPT_SANDBOXING' => 'YES',
       'SWIFT_EMIT_LOC_STRINGS' => 'YES'
     })
+    config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = platform == :osx ? 'MacIcon' : platform == :watchos ? 'WatchIcon' : 'AppIcon'
     if platform == :osx
       config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Configuration/macOS.entitlements'
       config.build_settings['ENABLE_HARDENED_RUNTIME'] = 'YES'
@@ -100,7 +114,7 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
   scheme.set_launch_target(target)
   unless platform == :watchos
     tests = project.new_target(:ui_test_bundle, name + 'UITests', platform, minimum)
-    tests.add_file_references([reference(project, references, 'Tests/AppUITests/OnboardingTests.swift')])
+    tests.add_file_references(Dir['Tests/AppUITests/*.swift'].sort.map { |path| reference(project, references, path) })
     tests.add_dependency(target)
     tests.build_configurations.each do |config|
       config.build_settings.merge!({ 'PRODUCT_BUNDLE_IDENTIFIER' => "org.zero.mail.#{suffix}.uitests", 'SWIFT_VERSION' => '5.0', 'GENERATE_INFOPLIST_FILE' => 'YES', 'TEST_TARGET_NAME' => name, 'CODE_SIGN_STYLE' => 'Automatic', 'SUPPORTED_PLATFORMS' => platforms, 'TARGETED_DEVICE_FAMILY' => family })
@@ -109,6 +123,8 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
   end
   scheme.save_as(project.path, name, true)
 end
+require_relative 'generate-extensions'
+add_zero_extensions(project, references, package)
 project.predictabilize_uuids
 project.save
 # Rewrite scheme UUIDs after deterministic project UUID conversion.

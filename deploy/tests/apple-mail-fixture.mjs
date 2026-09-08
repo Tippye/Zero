@@ -16,21 +16,29 @@ const account = {
   saveSent: true,
 };
 const drafts = new Map(),
-  operations = new Map();
+  operations = new Map(),
+  flags = new Map();
 function thread(id) {
   const draft = drafts.get(id);
+  const labels = flags.get(id) || ['UNREAD'];
+  const recipients = (value) =>
+    (value || '')
+      .split(',')
+      .map((email) => email.trim())
+      .filter(Boolean)
+      .map((email) => ({ email }));
   const latest = {
     id,
     threadId: id,
     sender: { email: 'sender@example.test', name: 'Sender' },
-    to: [{ email: account.email }],
-    cc: [],
-    bcc: [],
+    to: draft ? recipients(draft.to) : [{ email: account.email }],
+    cc: draft ? recipients(draft.cc) : [],
+    bcc: draft ? recipients(draft.bcc) : [],
     subject: draft?.subject || 'Native fixture',
     receivedOn: '2026-09-07T00:00:00Z',
     title: 'Native fixture',
-    unread: true,
-    tags: [],
+    unread: labels.includes('UNREAD'),
+    tags: labels.map((id) => ({ id, name: id })),
     tls: true,
     body: '',
     decodedBody: draft?.message || '<p>Hello &amp; welcome</p><script>blocked()</script>',
@@ -49,8 +57,8 @@ function thread(id) {
   return {
     messages: [latest],
     latest,
-    labels: [{ id: 'UNREAD', name: 'UNREAD' }],
-    hasUnread: true,
+    labels: labels.map((id) => ({ id, name: id })),
+    hasUnread: labels.includes('UNREAD'),
     totalReplies: 1,
   };
 }
@@ -74,6 +82,16 @@ createServer(async (req, res) => {
           result = thread(input.id);
           break;
         case 'mail.modify':
+          for (const id of input.ids) {
+            flags.set(id, [
+              ...new Set([
+                ...(flags.get(id) || ['UNREAD']).filter(
+                  (label) => !input.removeLabels.includes(label),
+                ),
+                ...input.addLabels,
+              ]),
+            ]);
+          }
           result = { success: true };
           break;
         case 'mail.list':
@@ -91,7 +109,8 @@ createServer(async (req, res) => {
           break;
         case 'mail.send': {
           const old = operations.get(input.operationId);
-          if (old && old !== JSON.stringify(input)) throw Error('Operation payload changed');
+          if (old && old !== JSON.stringify(input))
+            throw Object.assign(Error('Operation payload changed'), { status: 409 });
           operations.set(input.operationId, JSON.stringify(input));
           result = {
             id: 'sent',
@@ -107,9 +126,9 @@ createServer(async (req, res) => {
       }
     }
     res.end(JSON.stringify({ result }));
-  } catch {
+  } catch (error) {
     res
-      .writeHead(400)
+      .writeHead(error.status || 400)
       .end(
         JSON.stringify({ error: { code: 'FIXTURE_ERROR', message: 'Invalid synthetic request' } }),
       );

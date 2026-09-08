@@ -1,0 +1,18 @@
+/* Zero Mail settings */
+"MAIL_LIST" = "邮件列表";
+"PREVIEW_LINES" = "预览";
+"PREVIEW_NONE" = "无";
+"PREVIEW_ONE" = "1 行";
+"PREVIEW_TWO" = "2 行";
+"PREVIEW_THREE" = "3 行";
+"PREVIEW_FOUR" = "4 行";
+"PREVIEW_FIVE" = "5 行";
+"SHOW_ACCOUNT_ADDRESS" = "显示邮箱地址";
+"READING" = "阅读";
+"MARK_READ_ON_OPEN" = "打开时标为已读";
+"CONFIRM_BEFORE_TRASH" = "删除前询问";
+"NOTIFICATIONS" = "通知";
+"NOTIFICATION_PREVIEW" = "显示发件人与主题";
+"NOTIFICATION_SOUND" = "播放声音";
+"ABOUT" = "关于";
+"ABOUT_FOOTER" = "账户与配对设备请在 Zero Mail 中管理。";

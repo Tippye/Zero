@@ -5,6 +5,8 @@ public actor MailClient {
     public nonisolated let pairing: PairingClient
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    // Chosen only by a successful capability check; never by retrying a submitted AI mutation.
+    var usesLegacyAI = false
     public init(pairing: PairingClient) { self.pairing = pairing }
     private struct Empty: Codable {}
     private struct ID: Encodable { let id: String }
@@ -42,5 +44,9 @@ public actor MailClient {
     public func sync(accountID: String? = nil) async throws {
         struct Input: Encodable { let accountId: String? }
         let _: Empty = try await call("sync", Input(accountId: accountID))
+    }
+    public func events(after: String? = nil) async throws -> MailEventPage {
+        struct Input: Encodable { let after: String? }
+        return try await call("events", Input(after: after))
     }
 }

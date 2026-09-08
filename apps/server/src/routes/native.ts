@@ -1,9 +1,10 @@
+import { mailboxNotifications } from '../lib/mailbox-notifications';
 import { nativeMail } from '../lib/native-mail';
 import { bodyLimit } from 'hono/body-limit';
 import type { HonoContext } from '../ctx';
 import { TRPCError } from '@trpc/server';
 import { serverTrpc } from '../trpc';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { Hono } from 'hono';
 
 export const nativeRouter = new Hono<HonoContext>();
@@ -26,11 +27,15 @@ nativeRouter.use(
 nativeRouter.post('/v1/:operation', async (c) => {
   try {
     const body: unknown = await c.req.json();
-    return c.body(
-      JSON.stringify(await nativeMail(serverTrpc(), c.req.param('operation'), body)),
-      200,
-      { 'Content-Type': 'application/json' },
-    );
+    const operation = c.req.param('operation');
+    const result =
+      operation === 'events'
+        ? await mailboxNotifications(
+            c.var.sessionUser?.id,
+            z.object({ after: z.string().optional() }).parse(body).after,
+          )
+        : await nativeMail(serverTrpc(), operation, body);
+    return c.body(JSON.stringify(result), 200, { 'Content-Type': 'application/json' });
   } catch (error) {
     if (error instanceof ZodError || error instanceof SyntaxError)
       return c.json({ error: 'invalid_request' }, 400);
@@ -40,6 +45,7 @@ nativeRouter.post('/v1/:operation', async (c) => {
         FORBIDDEN: 403,
         NOT_FOUND: 404,
         BAD_REQUEST: 400,
+        CONFLICT: 409,
         PRECONDITION_FAILED: 409,
         TOO_MANY_REQUESTS: 429,
       } as const;

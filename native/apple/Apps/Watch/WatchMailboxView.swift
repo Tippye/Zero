@@ -28,6 +28,7 @@ struct WatchMailboxView: View {
                 if store.loading { ProgressView() }
                 else if store.threads.isEmpty { Text(store.accounts.isEmpty ? "请在网页连接邮箱后刷新。" : "没有邮件") }
                 if store.cursor != nil { Button("更多邮件") { Task { await store.reload(more: true) } }.disabled(store.loading) }
+                if !store.recoverableDrafts.isEmpty { Button("恢复本机草稿") { store.showDraftRecovery = true } }
                 Button("设置与设备") { store.showSettings = true }
             }
             .navigationTitle("Zero Mail")
@@ -35,9 +36,13 @@ struct WatchMailboxView: View {
                 WatchThreadView(store: store).task(id: id) { await store.open(id: id) }
             }
             .sheet(isPresented: $store.showSettings) { DeviceSettingsView(store: store) }
+            .sheet(isPresented: $store.showDraftRecovery, onDismiss: { store.finishRestoringDraft() }) { DraftRecoveryView(store: store) }
             .sheet(item: $store.composer) { draft in WatchReplyView(store: store, draft: draft) }
             .task(id: store.filterKey) { store.changeFilter(); await store.reload(); store.mailboxDidLoad() }
-            .onChange(of: store.selectedID) { id in if let id, path.last != id { path = [id] } }
+            .onChange(of: store.selectedID) { id in
+                if let id { if path.last != id { path = [id] } }
+                else { path = [] }
+            }
         }
     }
 }
@@ -52,6 +57,7 @@ struct WatchThreadView: View {
                     Text(message.subject.isEmpty ? "无主题" : message.subject).font(.headline)
                     Text(message.sender.display).font(.caption)
                     Text(message.text.isEmpty ? "请在 iPhone、iPad 或 Mac 上查看这封邮件的排版与附件。" : message.text)
+                    MailAIView(store: store, threadID: thread.id, messageID: message.id).id(message.id)
                     if !message.attachments.isEmpty { Text("\(message.attachments.count) 个附件，请在其他设备查看。").font(.caption) }
                     Button("回复") { store.reply(message) }
                     Button(thread.starred ? "取消星标" : "星标") { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } }
@@ -77,35 +83,89 @@ struct WatchThreadView: View {
 
 struct WatchReplyView: View {
     @ObservedObject var store: MailStore
-    let draft: MailComposer
     @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
+    @Environment(\.scenePhase) private var scenePhase
+    private let recoveryClient: MailClient?
+    @State private var draft: MailComposer
     @State private var busy = false
     @State private var confirm = false
     @State private var failed = false
+    @State private var confirmClose = false
+    @State private var finished = false
+    @State private var failure: String?
+    init(store: MailStore, draft: MailComposer) {
+        self.store = store; recoveryClient = store.client
+        _draft = State(initialValue: draft); _failed = State(initialValue: draft.deliveryUncertain == true)
+    }
     var body: some View {
         NavigationStack {
             Form {
-                Text("回复给 " + draft.to).font(.caption)
-                TextField("输入或听写回复", text: $text)
-                Button("发送回复") { confirm = true }.disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || failed)
+                if draft.threadId == nil {
+                    Picker("发件邮箱", selection: $draft.accountId) {
+                        ForEach(store.accounts.filter(\.connected)) { Text($0.email).tag($0.id) }
+                    }.disabled(busy || failed || draft.draftId != nil)
+                    TextField("收件人", text: $draft.to).disabled(busy || failed)
+                    TextField("主题", text: $draft.subject).disabled(busy || failed)
+                } else { Text("回复给 " + draft.to).font(.caption) }
+                TextField("输入或听写正文", text: $draft.text).disabled(busy || failed)
+                Button("发送") { confirm = true }.disabled(busy || draft.to.isEmpty || draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || failed)
+                Button("保存草稿") { Task { await save() } }.disabled(busy)
                 if busy { ProgressView() }
-                if failed { Text("发送未确认，请在其他设备检查已发送邮件。不会自动重发。").font(.caption) }
-                Button("关闭") { dismiss() }.disabled(busy)
+                if failed { Text("发送未确认，请先检查已发送邮件。此草稿不能再次发送，可保存到邮箱。").font(.caption) }
+                if let failure { Text(failure).font(.caption).foregroundStyle(.red) }
+                Button("关闭") { confirmClose = true }.disabled(busy)
             }
-            .navigationTitle("回复")
-            .confirmationDialog("发送回复给 \(draft.to)？", isPresented: $confirm, titleVisibility: .visible) {
-                Button("确认发送") {
-                    Task {
-                        busy = true; defer { busy = false }
-                        do {
-                            guard let client = store.client else { return }
-                            var outgoing = draft; outgoing.text = text + draft.text
-                            try await client.send(outgoing.outgoing()); dismiss(); await store.reload()
-                        } catch { failed = true; store.report(error) }
-                    }
-                }
+            .navigationTitle(draft.threadId == nil ? "写邮件" : "回复")
+            .confirmationDialog("发送给 \(draft.to)？", isPresented: $confirm, titleVisibility: .visible) {
+                Button("确认发送") { Task { await send() } }
+            }
+            .confirmationDialog("保留当前草稿？", isPresented: $confirmClose, titleVisibility: .visible) {
+                Button("保存到邮箱并关闭") { Task { await save() } }
+                Button("保留在本机并关闭") { if persistRecovery() { finished = true; dismiss() } }
+                Button("放弃本次编辑", role: .destructive) { discard() }
             }
         }
+        .interactiveDismissDisabled()
+        .onAppear { _ = persistRecovery() }
+        .onChange(of: draft) { _ in _ = persistRecovery() }
+        .onChange(of: scenePhase) { phase in if phase != .active { _ = persistRecovery() } }
+        .onDisappear { if !finished { _ = persistRecovery() } }
+    }
+    private func send() async {
+        guard !failed, draft.deliveryUncertain != true, let client = store.client, client === recoveryClient else { return }
+        do {
+            let outgoing = try draft.outgoing()
+            guard !(outgoing.to + outgoing.cc + outgoing.bcc).isEmpty else { throw MailFailure.invalidRecipients }
+            draft.deliveryUncertain = true
+            guard persistRecovery() else { draft.deliveryUncertain = nil; return }
+            busy = true; defer { busy = false }
+            do {
+                try await client.send(outgoing); finished = true
+                do { try store.completeComposer(draft, client: recoveryClient) }
+                catch { store.error = "邮件已发送，但本机恢复副本未能清除，请检查后删除。" }
+                dismiss(); await store.reload()
+            } catch { failed = true; _ = persistRecovery(); failure = error.localizedDescription; store.report(error) }
+        } catch { failure = error.localizedDescription }
+    }
+    private func save() async {
+        guard let client = store.client, client === recoveryClient, persistRecovery() else { return }
+        busy = true; defer { busy = false }
+        do {
+            draft.draftId = try await client.saveDraft(draft.outgoing()); finished = true
+            do { try store.completeComposer(draft, client: recoveryClient) }
+            catch { store.error = "草稿已保存到邮箱，但本机恢复副本未能清除。" }
+            dismiss(); await store.reload()
+        } catch { failure = error.localizedDescription; store.report(error) }
+    }
+    private func persistRecovery() -> Bool {
+        guard !finished else { return true }
+        do {
+            guard try store.saveRecovery(draft, client: recoveryClient) else { return false }
+            failure = nil; return true
+        } catch { failure = error.localizedDescription; return false }
+    }
+    private func discard() {
+        do { try store.completeComposer(draft, client: recoveryClient); finished = true; dismiss() }
+        catch { failure = error.localizedDescription }
     }
 }

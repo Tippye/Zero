@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "788447F62F7662B8D43B666C79183F76"
+               BlueprintIdentifier = "5974BAAC14DD6E037FA7744A8F976590"
                BuildableName = "ZeroIOS.app"
                BlueprintName = "ZeroIOS"
                ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "788447F62F7662B8D43B666C79183F76"
+            BlueprintIdentifier = "5974BAAC14DD6E037FA7744A8F976590"
             BuildableName = "ZeroIOS.app"
             BlueprintName = "ZeroIOS"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -41,7 +41,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D6DF7A5373EA0B0E57AC6BBACFD73EF7"
+               BlueprintIdentifier = "4FCEA532032758D2694CB496EF3413A3"
                BuildableName = "ZeroIOSUITests.xctest"
                BlueprintName = "ZeroIOSUITests"
                ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -63,7 +63,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "788447F62F7662B8D43B666C79183F76"
+            BlueprintIdentifier = "5974BAAC14DD6E037FA7744A8F976590"
             BuildableName = "ZeroIOS.app"
             BlueprintName = "ZeroIOS"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -80,7 +80,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "788447F62F7662B8D43B666C79183F76"
+            BlueprintIdentifier = "5974BAAC14DD6E037FA7744A8F976590"
             BuildableName = "ZeroIOS.app"
             BlueprintName = "ZeroIOS"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
