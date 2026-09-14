@@ -60,7 +60,7 @@ HTTP 入口保留，不强制跳转。前端使用当前页面来源访问 API�
 
 ## 邮箱与开放配置
 
-- 兼容 Gmail OAuth 和 QQ、163、126、iCloud、自定义 IMAP/SMTP。自定义服务器在 BRIDGE_ALLOWED_MAIL_HOSTS 中按逗号列出明确的主机名。
+- 兼容 Gmail OAuth 和 QQ、163、126、iCloud、自定义 IMAP/SMTP。配对式自托管部署可在「设置 → 连接 → 自定义邮件服务器」中启用并维护允许的主机列表，修改后立即生效。`BRIDGE_ALLOWED_MAIL_HOSTS` 仅作为工作区尚未保存网页设置时的兼容默认值。
 - Google 可选；配置 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET，并登记 `PUBLIC_URL/api/auth/callback/google`。邮箱连接和 Zero 登录是两件事。
 - AI 使用网页里的自有服务商配置；系统不依赖一个固定 AI 厂商，普通收发不需要 AI。模型请求由服务器发起。
 - Compose 模式关闭上游 Dub、PostHog 初始化和 Sentry 会话回放。外部邮件图片仍按用户设置加载。

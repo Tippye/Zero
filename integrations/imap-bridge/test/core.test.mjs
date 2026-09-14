@@ -4,7 +4,7 @@ import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Vault, seal, unseal, keyFromHex, validateAccount, authorized, messageId, parseMessageId,
-  pageUids, aiEndpoint, dispatchOnce, headerText } from '../src/core.mjs';
+  pageUids, aiEndpoint, dispatchOnce, headerText, normalizeMailHosts } from '../src/core.mjs';
 
 const key = keyFromHex('42'.repeat(32));
 export async function vaultFixture(t) {
@@ -47,6 +47,13 @@ test('custom hosts require explicit operator allowlist and reject plaintext port
   assert.equal(validateAccount(input, ['mail.example.com']).imapHost, 'mail.example.com');
   assert.throws(() => validateAccount({ ...input, imapPort: 143 }, ['mail.example.com']));
   assert.throws(() => validateAccount({ ...input, smtpPort: 25 }, ['mail.example.com']));
+});
+test('mail host settings normalize exact hostnames and reject wildcards or URLs', () => {
+  assert.deepEqual(normalizeMailHosts([' IMAP.Example.com ', 'imap.example.com', 'smtp.example.com']),
+    ['imap.example.com', 'smtp.example.com']);
+  for (const hosts of [['*.example.com'], ['https://imap.example.com'], ['imap.example.com:993'], ['']]) {
+    assert.throws(() => normalizeMailHosts(hosts), rejectsCode('INVALID_INPUT'));
+  }
 });
 test('header values and addresses reject CRLF', () => {
   assert.throws(() => headerText('ok\r\nBcc: other@example.com', 'subject'));

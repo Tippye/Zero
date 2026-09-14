@@ -9,7 +9,7 @@ import { openai } from '../../lib/openai';
 import { env } from '../../env';
 import type { HonoContext, HonoVariables } from '../../ctx';
 import { serializedFileSchema } from '../../lib/schemas';
-import { imapBridge, type ImapAccount, type ImapAiSettings, type ImapFolder,
+import { imapBridge, type ImapAccount, type ImapAiSettings, type ImapMailHostSettings, type ImapFolder,
   type ImapPage, type ImapThread, type ImapSendResult } from '../../lib/imap-bridge';
 
 // Deliberately do not use the upstream payload-logging middleware: inputs contain secrets and mail.
@@ -22,6 +22,17 @@ const owned = t.procedure.use(({ ctx, next }) => {
 const accountId = z.string().uuid();
 const messageId = z.string().min(1).max(4096);
 const recipient = z.object({ email: z.string().email().max(320), name: z.string().max(256).optional() });
+const selfHostedAdministrator = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.sessionUser) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Sign in to Zero first.' });
+  if (env.SELF_HOSTED !== 'true' || env.SELF_HOSTED_AUTH !== 'required') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Mail host settings are only available to the paired self-hosted workspace.' });
+  }
+  return next({ ctx: { ...ctx, sessionUser: ctx.sessionUser } });
+});
+const mailHostSettings = z.object({
+  enabled: z.boolean(),
+  hosts: z.array(z.string().trim().min(1).max(253)).max(100),
+}).strict();
 
 export const imapRouter = t.router({
   accounts: owned.query(({ ctx }) => imapBridge<ImapAccount[]>(ctx.sessionUser.id, 'accounts.list')),
@@ -36,6 +47,10 @@ export const imapRouter = t.router({
   }).strict()).mutation(({ ctx, input }) => imapBridge<ImapAccount>(ctx.sessionUser.id, 'accounts.add', input)),
   removeAccount: owned.input(z.object({ accountId }).strict())
     .mutation(({ ctx, input }) => imapBridge<{ success: boolean }>(ctx.sessionUser.id, 'accounts.remove', input)),
+  mailHostSettings: selfHostedAdministrator.query(({ ctx }) =>
+    imapBridge<ImapMailHostSettings>(ctx.sessionUser.id, 'settings.mailHosts')),
+  saveMailHostSettings: selfHostedAdministrator.input(mailHostSettings).mutation(({ ctx, input }) =>
+    imapBridge<ImapMailHostSettings>(ctx.sessionUser.id, 'settings.saveMailHosts', input)),
   folders: owned.input(z.object({ accountId }).strict())
     .query(({ ctx, input }) => imapBridge<ImapFolder[]>(ctx.sessionUser.id, 'mail.folders', input)),
   list: owned.input(z.object({ accountId, folder: z.string().max(1024).default('inbox'),

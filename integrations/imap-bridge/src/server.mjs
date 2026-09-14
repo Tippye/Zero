@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import {
   Vault, BridgeError, authorized, keyFromHex, ensure, text, headerText,
-  validateAccount, aiEndpoint,
+  validateAccount, normalizeMailHosts, aiEndpoint,
 } from './core.mjs';
 import { MailService } from './mail.mjs';
 
@@ -15,7 +15,7 @@ export class Bridge {
   constructor({ vault, mail, allowedHosts = [], allowedAiOrigins = [], fetchImpl = fetch }) {
     this.vault = vault;
     this.mail = mail;
-    this.allowedHosts = allowedHosts;
+    this.allowedHosts = normalizeMailHosts(allowedHosts);
     this.allowedAiOrigins = allowedAiOrigins;
     this.fetch = fetchImpl;
   }
@@ -24,6 +24,12 @@ export class Bridge {
     const account = await this.vault.get(owner, 'account', id);
     ensure(account, 'ACCOUNT_NOT_FOUND', 'Mailbox not found for this user', 404);
     return account;
+  }
+  async mailHostSettings(owner) {
+    const saved = await this.vault.get(owner, 'settings', 'mail-hosts');
+    if (!saved) return { enabled: this.allowedHosts.length > 0, hosts: this.allowedHosts };
+    ensure(typeof saved.enabled === 'boolean', 'VAULT_VERSION', 'Invalid mail host settings', 500);
+    return { enabled: saved.enabled, hosts: normalizeMailHosts(saved.hosts) };
   }
   async call(owner, action, input = {}) {
     headerText(owner, 'owner', 256);
@@ -36,7 +42,9 @@ export class Bridge {
         return accounts.filter(Boolean).map(publicAccount);
       }
       case 'accounts.add': {
-        const account = validateAccount(input, this.allowedHosts);
+        const settings = await this.mailHostSettings(owner);
+        if (input.preset === 'custom') ensure(settings.enabled, 'CUSTOM_HOSTS_DISABLED', 'Custom mail servers are disabled');
+        const account = validateAccount(input, settings.hosts);
         // Do not persist credentials until BOTH mail protocols have authenticated successfully.
         await this.mail.verify(account);
         return this.vault.exclusive(`accounts:${owner}`, async () => {
@@ -61,6 +69,16 @@ export class Bridge {
           const ids = await this.vault.get(owner, 'index', 'accounts') || [];
           await this.vault.put(owner, 'index', 'accounts', ids.filter((id) => id !== input.accountId));
           return { success: true };
+        });
+      }
+      case 'settings.mailHosts':
+        return this.mailHostSettings(owner);
+      case 'settings.saveMailHosts': {
+        ensure(typeof input.enabled === 'boolean', 'INVALID_INPUT', 'Enabled must be a boolean');
+        const settings = { enabled: input.enabled, hosts: normalizeMailHosts(input.hosts) };
+        return this.vault.exclusive(`settings:${owner}:mail-hosts`, async () => {
+          await this.vault.put(owner, 'settings', 'mail-hosts', settings);
+          return settings;
         });
       }
       case 'ai.settings': {

@@ -34,6 +34,10 @@ export type ImapAiSettings = {
   hasKey: boolean;
   allowedOrigins: string[];
 };
+export type ImapMailHostSettings = {
+  enabled: boolean;
+  hosts: string[];
+};
 export type ImapSendResult = {
   id: string;
   accepted: string[];

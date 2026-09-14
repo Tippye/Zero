@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, Plus, Trash, Unplug, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SettingsCard } from '@/components/settings/settings-card';
@@ -15,6 +15,8 @@ import { emailProviders } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { m } from '@/paraglide/messages';
 import { toast } from 'sonner';
 
@@ -22,6 +24,77 @@ type ConnectionCard = {
   id: string; email: string; name: string | null; picture?: string | null;
   protocol: 'oauth' | 'imap'; provider: string; disconnected: boolean;
 };
+
+function MailHostSettings() {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const cache = useQueryClient();
+  const settings = useQuery(trpc.imap.mailHostSettings.queryOptions(undefined, {
+    retry: false,
+    gcTime: 0,
+    meta: { persist: false },
+    trpc: { abortOnUnmount: true },
+  }));
+  const [enabled, setEnabled] = useState(false);
+  const [hosts, setHosts] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!settings.data) return;
+    setEnabled(settings.data.enabled);
+    setHosts(settings.data.hosts.join('\n'));
+  }, [settings.data]);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const normalized = [...new Set(hosts.split(/[\s,]+/).map(host => host.trim().toLowerCase()).filter(Boolean))];
+    if (normalized.some(host => !/^[a-z\d](?:[a-z\d.-]*[a-z\d])?$/.test(host))) {
+      toast.error(m['connectionsUi.mailHostsInvalid']());
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await client.imap.saveMailHostSettings.mutate({ enabled, hosts: normalized });
+      cache.setQueryData(trpc.imap.mailHostSettings.queryKey(), saved);
+      setEnabled(saved.enabled);
+      setHosts(saved.hosts.join('\n'));
+      toast.success(m['connectionsUi.mailHostsSaved']());
+    } catch {
+      toast.error(m['connectionsUi.mailHostsSaveFailed']());
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <SettingsCard title={m['connectionsUi.mailHostsTitle']()} description={m['connectionsUi.mailHostsDescription']()}>
+    {settings.error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm">
+      <p>{m['connectionsUi.mailHostsLoadFailed']()}</p>
+      <Button type="button" size="sm" variant="outline" onClick={() => void settings.refetch()}>{m['pages.settings.retry']()}</Button>
+    </div> : <form className="space-y-4" onSubmit={save}>
+      <div className="flex items-start justify-between gap-4 rounded-lg border p-4">
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{m['connectionsUi.mailHostsEnabled']()}</p>
+          <p className="text-muted-foreground text-sm">{m['connectionsUi.mailHostsEnabledHelp']()}</p>
+        </div>
+        <Switch aria-label={m['connectionsUi.mailHostsEnabled']()} checked={enabled} disabled={settings.isLoading || saving} onCheckedChange={setEnabled} />
+      </div>
+      <label className="block space-y-2 text-sm">
+        <span className="font-medium">{m['connectionsUi.mailHostsList']()}</span>
+        <Textarea value={hosts} disabled={settings.isLoading || saving} onChange={event => setHosts(event.target.value)}
+          className="min-h-32 font-mono" placeholder={'imap.school.edu\nsmtp.school.edu'} />
+        <span className="text-muted-foreground block text-xs">{m['connectionsUi.mailHostsListHelp']()}</span>
+      </label>
+      {enabled && !hosts.trim() && <p role="status" className="text-amber-700 text-sm dark:text-amber-400">{m['connectionsUi.mailHostsEmpty']()}</p>}
+      <div className="flex justify-end">
+        <Button type="submit" disabled={settings.isLoading || saving}>
+          {saving && <Loader2 className="size-4 animate-spin" />}
+          {m['common.actions.saveChanges']()}
+        </Button>
+      </div>
+    </form>}
+  </SettingsCard>;
+}
 
 export default function ConnectionsPage() {
   const oauth = useConnections();
@@ -123,6 +196,7 @@ export default function ConnectionsPage() {
           })}
         </div>
       </SettingsCard>
+      {import.meta.env.VITE_PUBLIC_SELF_HOSTED_AUTH === 'required' && <MailHostSettings />}
       <Dialog open={!!removing} onOpenChange={open => { if (!open && !busy) setRemoving(null); }}>
         <DialogContent showOverlay>
           <DialogHeader>

@@ -101,6 +101,14 @@ export const PRESETS = Object.freeze({
   '126': { imapHost: 'imap.126.com', smtpHost: 'smtp.126.com' },
   icloud: { imapHost: 'imap.mail.me.com', smtpHost: 'smtp.mail.me.com', smtpPort: 587 },
 });
+export function normalizeMailHosts(hosts) {
+  ensure(Array.isArray(hosts) && hosts.length <= 100, 'INVALID_INPUT', 'Allowed mail hosts must be a list of at most 100 hostnames');
+  const normalized = hosts.map((value) => headerText(value, 'mail hostname', 253).trim().toLowerCase());
+  for (const host of normalized) {
+    ensure(/^[a-z\d](?:[a-z\d.-]*[a-z\d])?$/.test(host), 'INVALID_INPUT', 'Invalid mail server hostname');
+  }
+  return [...new Set(normalized)];
+}
 export function validateAccount(input, allowedHosts = []) {
   ensure(input && typeof input === 'object', 'INVALID_INPUT', 'Account is required');
   const email = address(input.email);

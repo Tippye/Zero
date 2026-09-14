@@ -53,6 +53,7 @@ export function ImapConnectionForm({ preset, onConnected, onBack, onBusyChange }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : '';
       setError(message.includes('DUPLICATE_ACCOUNT') ? m['connectionsUi.duplicate']()
+        : message.includes('CUSTOM_HOSTS_DISABLED') ? m['connectionsUi.customHostsDisabled']()
         : message.includes('HOST_NOT_ALLOWED') ? m['connectionsUi.hostNotAllowed']()
         : message.includes('BUSY') || message.includes('RATE_LIMIT') ? m['connectionsUi.busy']()
         : m['connectionsUi.verificationFailed']());

@@ -34,6 +34,24 @@ test('disconnect removes only the authenticated owners account', async (t) => {
   assert.deepEqual(await bridge.call('u', 'accounts.list'), []);
   assert.equal(await vault.get('u', 'account', a.id), null);
 });
+test('mail host settings are owner-scoped, encrypted and immediately control custom accounts', async (t) => {
+  const { bridge, vault } = await fixture(t, { allowedHosts: ['legacy.example.com'] });
+  assert.deepEqual(await bridge.call('u', 'settings.mailHosts'), { enabled: true, hosts: ['legacy.example.com'] });
+  await bridge.call('u', 'settings.saveMailHosts', { enabled: false, hosts: ['IMAP.School.edu', 'smtp.school.edu'] });
+  assert.deepEqual(await bridge.call('u', 'settings.mailHosts'), { enabled: false, hosts: ['imap.school.edu', 'smtp.school.edu'] });
+  await assert.rejects(bridge.call('u', 'accounts.add', {
+    email: 'student@school.edu', preset: 'custom', password: 'code',
+    imapHost: 'imap.school.edu', smtpHost: 'smtp.school.edu',
+  }), (error) => error.code === 'CUSTOM_HOSTS_DISABLED');
+  await bridge.call('u', 'settings.saveMailHosts', { enabled: true, hosts: ['imap.school.edu', 'smtp.school.edu'] });
+  const created = await bridge.call('u', 'accounts.add', {
+    email: 'student@school.edu', preset: 'custom', password: 'code',
+    imapHost: 'imap.school.edu', smtpHost: 'smtp.school.edu',
+  });
+  assert.equal(created.email, 'student@school.edu');
+  assert.deepEqual(await bridge.call('other', 'settings.mailHosts'), { enabled: true, hosts: ['legacy.example.com'] });
+  assert.deepEqual(await vault.get('u', 'settings', 'mail-hosts'), { enabled: true, hosts: ['imap.school.edu', 'smtp.school.edu'] });
+});
 test('BYOK settings never return the key; empty key is allowed for local providers', async (t) => {
   const { bridge, vault } = await fixture(t);
   await bridge.call('u', 'ai.configure', { baseUrl: 'https://ai.example.com/v1', model: 'my-model', apiKey: 'secret-key' });
