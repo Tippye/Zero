@@ -41,7 +41,10 @@ final class HTMLMailTests: XCTestCase {
         }
         let inbox = app.descendants(matching: .any)["folder-inbox"].firstMatch
         if inbox.exists && inbox.isHittable { inbox.tap() }
-        let row = app.descendants(matching: .any)["thread-mbx.ui-test.message-1"].firstMatch
+        let id = "thread-mbx.ui-test.message-1"
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ OR identifier BEGINSWITH %@", id, id + "-"))
+            .firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
     }
     private func checkRenderedBody() throws -> XCUIElement {
@@ -61,7 +64,11 @@ final class HTMLMailTests: XCTestCase {
         let screenshot = XCTAttachment(screenshot: app.screenshot()); screenshot.name = "Inline styled HTML email"; screenshot.lifetime = .keepAlways; add(screenshot)
         app.buttons["toggleMailBodyFormat"].tap()
         XCTAssertTrue(app.staticTexts["Plain fallback only"].waitForExistence(timeout: 5))
+        #if os(macOS)
+        XCTAssertTrue(app.webViews.firstMatch.exists)
+        #else
         XCTAssertFalse(app.webViews.firstMatch.exists)
+        #endif
         app.buttons["toggleMailBodyFormat"].tap()
         _ = try checkRenderedBody()
     }
@@ -70,12 +77,34 @@ final class HTMLMailTests: XCTestCase {
         _ = try checkRenderedBody()
         XCTAssertFalse(app.staticTexts["此邮件没有纯文本正文。"].exists)
     }
-    func testPlainTextOnlyEmailUsesNativeText() throws {
+    func testPlainTextOnlyEmailRemainsSelectable() throws {
         try openMail("text-only")
         XCTAssertTrue(app.staticTexts["Plain fallback only"].waitForExistence(timeout: 10), app.debugDescription)
+        #if os(macOS)
+        XCTAssertTrue(app.webViews.firstMatch.exists)
+        #else
         XCTAssertFalse(app.webViews.firstMatch.exists)
+        #endif
         XCTAssertFalse(app.buttons["toggleMailBodyFormat"].exists)
     }
+    #if os(macOS)
+    func testSelectedHTMLTextOffersAIActions() throws {
+        try openMail("styled")
+        let web = try checkRenderedBody()
+        let text = web.staticTexts["HTML receipt"]
+        XCTAssertTrue(text.waitForExistence(timeout: 10))
+        text.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: text.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+        text.rightClick()
+        let aiMenu = app.menuItems["使用 AI"]
+        XCTAssertTrue(aiMenu.waitForExistence(timeout: 5), app.debugDescription)
+        aiMenu.hover()
+        let summarize = app.menuItems["总结所选内容"]
+        XCTAssertTrue(summarize.waitForExistence(timeout: 5)); summarize.click()
+        XCTAssertTrue(app.descendants(matching: .any)["aiInspector"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Synthetic answer"].waitForExistence(timeout: 10))
+    }
+    #endif
     func testExpandedHTMLAndAttachmentRemainAvailable() throws {
         try openMail("styled")
         _ = try checkRenderedBody()

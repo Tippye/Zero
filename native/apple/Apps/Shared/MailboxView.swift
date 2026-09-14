@@ -203,7 +203,40 @@ struct ThreadDetailView: View {
     @State private var exported: URL?
     @State private var exporting = false
     @State private var htmlPresentation: HTMLPresentation?
+    #if os(macOS)
+    @State private var aiInspectorPresented = false
+    @State private var aiMessageID: String?
+    @State private var aiSelectionRequest: MailAISelectionRequest?
+    #endif
     var body: some View {
+        Group {
+            #if os(macOS)
+            HSplitView {
+                detailPane
+                if aiInspectorPresented { aiInspectorPane }
+            }
+            #else
+            detailPane
+            #endif
+        }
+        .onChange(of: store.selectedID) { _ in clearExport() }
+        .onDisappear { clearExport() }
+        .sheet(item: $htmlPresentation) { HTMLMailView(html: $0.html) }
+        #if os(macOS)
+        .onChange(of: store.selectedID) { _ in
+            aiInspectorPresented = false
+            aiMessageID = nil
+            aiSelectionRequest = nil
+        }
+        #endif
+        #if os(iOS)
+        .toolbar {
+            if horizontalSizeClass == .compact { MailboxActions(store: store) }
+        }
+        #endif
+    }
+
+    @ViewBuilder private var detailPane: some View {
         Group {
             if store.reading { ProgressView("读取邮件…") }
             else if let thread = store.detail {
@@ -217,8 +250,16 @@ struct ThreadDetailView: View {
                                 Text("收件人：" + message.to.map(\.email).joined(separator: ", ")).font(.caption).foregroundStyle(.secondary)
                                 MailDateLabel(value: message.receivedOn).font(.caption).foregroundStyle(.secondary)
                                 Divider()
+                                #if os(macOS)
+                                MailMessageBody(html: message.html, text: message.text) { action, text in
+                                    openAI(messageID: message.id, selection: MailAISelectionRequest(action: action, text: text))
+                                }.id(message.id)
+                                #else
                                 MailMessageBody(html: message.html, text: message.text).id(message.id)
+                                #endif
+                                #if !os(macOS)
                                 MailAIView(store: store, threadID: thread.id, messageID: message.id).id(message.id)
+                                #endif
                                 if !message.html.isEmpty {
                                     Button("查看邮件排版") { htmlPresentation = HTMLPresentation(html: message.html) }
                                 }
@@ -252,6 +293,11 @@ struct ThreadDetailView: View {
                     Button { Task { await store.act(thread.starred ? .unstar : .star, id: thread.id) } } label: { Label("星标", systemImage: thread.starred ? "star.fill" : "star") }
                     Button { Task { await store.act(.unread, id: thread.id) } } label: { Label("标为未读", systemImage: "envelope.badge") }
                     Button { Task { await store.act(.archive, id: thread.id) } } label: { Label("归档", systemImage: "archivebox") }
+                    #if os(macOS)
+                    Button { openAI() } label: { Label("AI 邮件助手", systemImage: "sparkles") }
+                        .help("打开 AI 邮件助手")
+                        .accessibilityIdentifier("aiReader")
+                    #endif
                     Menu {
                         ForEach(MailCategory.allCases.filter { $0 != .all }) { category in
                             Button(category.title) { Task { await store.moveCategory(category, id: thread.id) } }
@@ -267,15 +313,39 @@ struct ThreadDetailView: View {
                 }
             }
         }
-        .onChange(of: store.selectedID) { _ in clearExport() }
-        .onDisappear { clearExport() }
-        .sheet(item: $htmlPresentation) { HTMLMailView(html: $0.html) }
-        #if os(iOS)
-        .toolbar {
-            if horizontalSizeClass == .compact { MailboxActions(store: store) }
-        }
-        #endif
     }
+
+    #if os(macOS)
+    @ViewBuilder private var aiInspectorPane: some View {
+        if let thread = store.detail,
+           let message = thread.messages.first(where: { $0.id == aiMessageID }) ?? thread.messages.last {
+            ZStack(alignment: .topTrailing) {
+                MailAIView(
+                    store: store,
+                    threadID: thread.id,
+                    messageID: message.id,
+                    presentation: .inspector,
+                    selectionRequest: aiSelectionRequest
+                )
+                .id(message.id)
+                Button { aiInspectorPresented = false } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("关闭 AI 邮件助手")
+                .accessibilityLabel("关闭 AI 邮件助手")
+                .accessibilityIdentifier("closeAIInspector")
+                .padding(12)
+            }
+            .frame(minWidth: 300, idealWidth: 360, maxWidth: 480, maxHeight: .infinity)
+        } else {
+            Text("选择一封邮件后使用 AI 助手。")
+                .foregroundStyle(.secondary)
+                .padding()
+                .frame(minWidth: 300, idealWidth: 360, maxWidth: 480, maxHeight: .infinity)
+        }
+    }
+    #endif
     @ViewBuilder private func replyActions(_ message: MailMessage) -> some View {
         Button("回复") { store.reply(message) }
         Button("回复全部") { store.reply(message, all: true) }
@@ -305,6 +375,18 @@ struct ThreadDetailView: View {
     private func clearExport() {
         if let exported { try? FileManager.default.removeItem(at: exported.deletingLastPathComponent()) }; exported = nil
     }
+    #if os(macOS)
+    private func openAI(messageID: String? = nil, selection: MailAISelectionRequest? = nil) {
+        guard let thread = store.detail, let target = messageID ?? thread.messages.last?.id else { return }
+        if selection == nil, aiInspectorPresented, aiMessageID == target {
+            aiInspectorPresented = false
+            return
+        }
+        aiMessageID = target
+        aiSelectionRequest = selection
+        aiInspectorPresented = true
+    }
+    #endif
 }
 
 private struct MailCategoryEditor: View {

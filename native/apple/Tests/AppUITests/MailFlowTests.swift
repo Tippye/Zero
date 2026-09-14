@@ -42,6 +42,12 @@ final class MailFlowTests: XCTestCase {
         XCTAssertTrue(app.textFields["recipient"].waitForExistence(timeout: 10))
     }
 
+    private func threadRow(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ OR identifier BEGINSWITH %@", id, id + "-"))
+            .firstMatch
+    }
+
     func testPairingKeychainRecoveryAndReadAttachment() throws {
         app.terminate(); app.launch()
         XCTAssertTrue(app.buttons["compose"].waitForExistence(timeout: 10))
@@ -49,7 +55,7 @@ final class MailFlowTests: XCTestCase {
         app.open(URL(string: "zeromail://inbox")!)
         let inbox = app.descendants(matching: .any)["folder-inbox"].firstMatch
         if inbox.exists && inbox.isHittable { inbox.tap() }
-        let row = app.descendants(matching: .any)["thread-mbx.ui-test.message-1"].firstMatch
+        let row = threadRow("thread-mbx.ui-test.message-1")
         XCTAssertTrue(row.waitForExistence(timeout: 10), app.debugDescription)
         row.tap()
         let attachment = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "sample.txt")).firstMatch
@@ -89,7 +95,7 @@ final class MailFlowTests: XCTestCase {
         app.open(URL(string: "zeromail://inbox")!)
         let inbox = app.descendants(matching: .any)["folder-inbox"].firstMatch
         if inbox.exists && inbox.isHittable { inbox.tap() }
-        let row = app.descendants(matching: .any)["thread-mbx.ui-test.message-1"].firstMatch
+        let row = threadRow("thread-mbx.ui-test.message-1")
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         let detail = app.scrollViews["mailDetail"]
@@ -137,10 +143,13 @@ final class MailFlowTests: XCTestCase {
         app.open(URL(string: "zeromail://inbox")!)
         let inbox = app.descendants(matching: .any)["folder-inbox"].firstMatch
         if inbox.exists && inbox.isHittable { inbox.tap() }
-        let row = app.descendants(matching: .any)["thread-mbx.ui-test.message-1"].firstMatch
+        let row = threadRow("thread-mbx.ui-test.message-1")
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
         let reader = app.descendants(matching: .any)["aiReader"].firstMatch
         XCTAssertTrue(reader.waitForExistence(timeout: 10)); reader.tap()
+        #if os(macOS)
+        XCTAssertTrue(app.descendants(matching: .any)["aiInspector"].waitForExistence(timeout: 10))
+        #endif
         XCTAssertTrue(app.staticTexts["aiCacheUnavailable"].waitForExistence(timeout: 10))
         let summary = app.buttons["aiSummary"]
         XCTAssertTrue(summary.waitForExistence(timeout: 10)); XCTAssertTrue(summary.isEnabled); summary.tap()
