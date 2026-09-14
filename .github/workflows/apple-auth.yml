@@ -85,14 +85,17 @@ jobs:
             ui-family: none
             extensions: ZeroWatchWidgets
     env:
-      ZERO_BUILD_DIR: ${{ runner.temp }}/apple-${{ matrix.target }}/build
-      ZERO_EVIDENCE_DIR: ${{ runner.temp }}/apple-${{ matrix.target }}/evidence
       ZERO_UI_PORT: '19280'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Configure temporary paths
+        run: |
+          echo "ZERO_BUILD_DIR=$RUNNER_TEMP/apple-${{ matrix.target }}/build" >> "$GITHUB_ENV"
+          echo "ZERO_EVIDENCE_DIR=$RUNNER_TEMP/apple-${{ matrix.target }}/evidence" >> "$GITHUB_ENV"
+          echo "ZERO_UI_BUILD_DIR=$RUNNER_TEMP/apple-${{ matrix.target }}/build" >> "$GITHUB_ENV"
       - name: Record Xcode and available SDKs
         run: |
           mkdir -p "$ZERO_EVIDENCE_DIR"
@@ -135,7 +138,6 @@ jobs:
         if: matrix.ui-family != 'none'
         env:
           ZERO_SCHEME: ${{ matrix.scheme }}
-          ZERO_UI_BUILD_DIR: ${{ env.ZERO_BUILD_DIR }}
         run: |
           # test-ui.sh enables ZERO_UI_FIXTURE only in the test runner. Its
           # loopback fixture contains synthetic mail and never uses port 18080.
@@ -148,6 +150,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apple-${{ matrix.target }}-results
-          path: ${{ env.ZERO_EVIDENCE_DIR }}
+          path: ${{ runner.temp }}/apple-${{ matrix.target }}/evidence
           if-no-files-found: warn
           retention-days: 14
