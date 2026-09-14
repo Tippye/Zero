@@ -76,6 +76,9 @@ struct ThreadListView: View {
     var body: some View {
         List(selection: $store.selectedID) {
             if store.folder == .inbox {
+                #if os(macOS)
+                MacMailCategoryFilter(selection: $store.category)
+                #else
                 Picker("邮件分类", selection: $store.category) {
                     ForEach(MailCategory.allCases) { category in
                         Label(category.title, systemImage: category.symbol).tag(category)
@@ -83,6 +86,7 @@ struct ThreadListView: View {
                 }
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("mailCategoryFilter")
+                #endif
             }
             ForEach(store.warnings.indices, id: \.self) { index in
                 Label(store.warnings[index].email + "：" + store.warnings[index].message, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
@@ -122,6 +126,47 @@ struct ThreadListView: View {
         .onChange(of: store.selectedID) { id in if let id { Task { await store.open(id: id) } } }
     }
 }
+
+#if os(macOS)
+private struct MacMailCategoryFilter: View {
+    @Binding var selection: MailCategory
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(MailCategory.allCases) { category in
+                    categoryButton(category)
+                }
+            }
+            .padding(.vertical, 3)
+        }
+        .accessibilityIdentifier("mailCategoryFilter")
+    }
+
+    private func categoryButton(_ category: MailCategory) -> some View {
+        let isSelected = selection == category
+        return Button {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                selection = category
+            }
+        } label: {
+            Label(category.title, systemImage: category.symbol)
+                .font(.callout.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .padding(.horizontal, isSelected ? 20 : 14)
+                .frame(minHeight: 32)
+                .background {
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.12))
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("mailCategory-" + category.rawValue)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+#endif
 
 struct MailRow: View {
     let thread: MailSummary
