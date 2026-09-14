@@ -51,6 +51,11 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
   target.add_file_references(sources.sort.map { |path| reference(project, references, path) })
   target.resources_build_phase.add_file_reference(reference(project, references, 'Configuration/PrivacyInfo.xcprivacy'))
   target.resources_build_phase.add_file_reference(reference(project, references, 'Configuration/Assets.xcassets'))
+  if platform == :osx
+    icon = reference(project, references, 'Configuration/ZeroIcon.icon')
+    icon.last_known_file_type = 'folder.iconcomposer.icon'
+    target.resources_build_phase.add_file_reference(icon)
+  end
   if platform == :ios
     settings = reference(project, references, 'Configuration/Settings.bundle')
     settings.last_known_file_type = 'wrapper.plug-in'
@@ -100,7 +105,7 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
       'TARGETED_DEVICE_FAMILY' => family, 'ENABLE_USER_SCRIPT_SANDBOXING' => 'YES',
       'SWIFT_EMIT_LOC_STRINGS' => 'YES'
     })
-    config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = platform == :osx ? 'MacIcon' : platform == :watchos ? 'WatchIcon' : 'AppIcon'
+    config.build_settings['ASSETCATALOG_COMPILER_APPICON_NAME'] = platform == :osx ? 'ZeroIcon' : platform == :watchos ? 'WatchIcon' : 'AppIcon'
     if platform == :osx
       config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Configuration/macOS.entitlements'
       config.build_settings['ENABLE_HARDENED_RUNTIME'] = 'YES'

@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "C57D1188D95CEEDD5BDC928401DCF968"
+               BlueprintIdentifier = "634A0086B0DB35038F7EA48205F32F55"
                BuildableName = "ZeroMac.app"
                BlueprintName = "ZeroMac"
                ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C57D1188D95CEEDD5BDC928401DCF968"
+            BlueprintIdentifier = "634A0086B0DB35038F7EA48205F32F55"
             BuildableName = "ZeroMac.app"
             BlueprintName = "ZeroMac"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -63,7 +63,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C57D1188D95CEEDD5BDC928401DCF968"
+            BlueprintIdentifier = "634A0086B0DB35038F7EA48205F32F55"
             BuildableName = "ZeroMac.app"
             BlueprintName = "ZeroMac"
             ReferencedContainer = "container:ZeroMail.xcodeproj">
@@ -80,7 +80,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C57D1188D95CEEDD5BDC928401DCF968"
+            BlueprintIdentifier = "634A0086B0DB35038F7EA48205F32F55"
             BuildableName = "ZeroMac.app"
             BlueprintName = "ZeroMac"
             ReferencedContainer = "container:ZeroMail.xcodeproj">

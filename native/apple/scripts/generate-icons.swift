@@ -9,9 +9,31 @@ let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "Conf
 let fm = FileManager.default
 let outer: [(CGFloat, CGFloat)] = [(38.125,190.625),(38.125,152.5),(0,152.5),(0,38.125),(38.125,38.125),(38.125,0),(152.5,0),(152.5,38.125),(190.625,38.125),(190.625,152.5),(152.5,152.5),(152.5,190.625)]
 let inner: [(CGFloat, CGFloat)] = [(38.125,114.375),(76.25,114.375),(76.25,150.975),(152.5,150.975),(152.5,76.25),(114.375,76.25),(114.375,114.375),(76.25,114.375),(76.25,76.25),(114.375,76.25),(114.375,39.65),(38.125,39.65)]
-func render(_ size: Int, at url: URL) throws {
-    let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-    context.setFillColor(CGColor(gray: 0, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+func render(_ size: Int, platform: String, at url: URL) throws {
+    // A legacy macOS app-icon set isn't masked like a modern Icon Composer
+    // document. Keep its canvas square, but put the artwork on the standard
+    // inset rounded-rectangle silhouette so Finder and the Dock don't display
+    // an oversized hard-edged square. Other Apple platforms receive a full-
+    // bleed square and let the system apply their platform mask.
+    let hasAlpha = platform == "mac"
+    let alphaInfo: CGImageAlphaInfo = hasAlpha ? .premultipliedLast : .noneSkipLast
+    let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: alphaInfo.rawValue)!
+    let canvas = CGRect(x: 0, y: 0, width: size, height: size)
+    context.clear(canvas)
+    if hasAlpha {
+        // Apple's macOS production grid places the icon body inside a
+        // 1024-point canvas. These ratios retain that optical size at every
+        // legacy app-icon resolution.
+        let bodyInset = CGFloat(size) * 100 / 1024
+        let body = canvas.insetBy(dx: bodyInset, dy: bodyInset)
+        let cornerRadius = CGFloat(size) * 185 / 1024
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.addPath(CGPath(roundedRect: body, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil))
+        context.fillPath()
+    } else {
+        context.setFillColor(CGColor(gray: 0, alpha: 1))
+        context.fill(canvas)
+    }
     let path = CGMutablePath(), scale = CGFloat(size) * 0.51 / 190.625, padding = CGFloat(size) * 0.245
     for points in [outer, inner] {
         for (index, point) in points.enumerated() {
@@ -35,12 +57,12 @@ for (name, idiom) in [("AppIcon", "universal"), ("MacIcon", "mac"), ("WatchIcon"
         for size in [16, 32, 128, 256, 512] {
             for scale in [1, 2] {
                 let filename = "icon-\(size)@\(scale)x.png"
-                try render(size * scale, at: directory.appendingPathComponent(filename))
+                try render(size * scale, platform: idiom, at: directory.appendingPathComponent(filename))
                 images.append(["idiom": idiom, "size": "\(size)x\(size)", "scale": "\(scale)x", "filename": filename])
             }
         }
     } else {
-        try render(1024, at: directory.appendingPathComponent("icon-1024.png"))
+        try render(1024, platform: idiom, at: directory.appendingPathComponent("icon-1024.png"))
         images = [["idiom": "universal", "platform": idiom == "universal" ? "ios" : "watchos", "size": "1024x1024", "filename": "icon-1024.png"]]
     }
     try JSONSerialization.data(withJSONObject: ["images": images, "info": ["author": "xcode", "version": 1]], options: [.prettyPrinted, .sortedKeys]).write(to: directory.appendingPathComponent("Contents.json"))
