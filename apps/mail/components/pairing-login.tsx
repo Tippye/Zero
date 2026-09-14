@@ -1,6 +1,7 @@
 import { pairingCall, loginDestination, type PairingRequest } from '@/lib/pairing-client';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import QRCode from 'qrcode';
 
 const storageKey = 'zero.pending-pairing.v1';
@@ -121,6 +122,27 @@ export function PairingLogin() {
       setBusy(false);
     }
   }
+  async function copyPairingCode() {
+    if (!request) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(request.userCode);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = request.userCode;
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        const copied = document.execCommand('copy');
+        input.remove();
+        if (!copied) throw new Error('Clipboard unavailable');
+      }
+      toast.success('复制成功 / Copied to clipboard');
+    } catch {
+      toast.error('复制失败，请手动复制 / Copy failed');
+    }
+  }
   return (
     <div className="w-full space-y-4 text-white">
       <p>
@@ -152,9 +174,16 @@ export function PairingLogin() {
               height={240}
             />
           )}
-          <p className="font-mono text-3xl tracking-widest" data-testid="pairing-code">
+          <button
+            type="button"
+            onClick={() => void copyPairingCode()}
+            className="mx-auto cursor-pointer rounded px-2 py-1 font-mono text-3xl tracking-widest transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            aria-label="复制配对码 / Copy pairing code"
+            title="点击复制配对码 / Click to copy pairing code"
+            data-testid="pairing-code"
+          >
             {request.userCode}
-          </p>
+          </button>
           <p className="text-sm text-white/70" role="status">
             等待确认 · {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')} /
             Waiting for approval

@@ -48,6 +48,8 @@ function approve(code) {
       const code = page.getByTestId('pairing-code');
       await code.waitFor();
       const text = await code.innerText();
+      await code.click();
+      await page.getByText('复制成功 / Copied to clipboard', { exact: true }).waitFor();
       await page.getByAltText('使用已登录设备扫描此配对二维码 / Pairing QR code').waitFor();
       assert.ok(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
