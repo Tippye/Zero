@@ -68,10 +68,12 @@ tools.json
 # Self-hosted deployment secrets and local desktop artifacts
 /deploy/.env
 /deploy/tls/
+/deploy/release/
 /native/desktop/release/
 
 /native/desktop/release-windows/
 /native/desktop/release-resources/
+/native/apple/release/
 
 # Source assets used by the Windows installer (not generated build output)
 !/native/desktop/build/

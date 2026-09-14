@@ -62,7 +62,7 @@ def add_zero_extensions(project, references, package)
       config.build_settings.merge!({
         'PRODUCT_BUNDLE_IDENTIFIER' => "org.zero.mail.#{suffix}", 'PRODUCT_NAME' => name,
         'SWIFT_VERSION' => '5.0', 'SWIFT_STRICT_CONCURRENCY' => 'targeted',
-        'MARKETING_VERSION' => '0.1.0', 'CURRENT_PROJECT_VERSION' => '1',
+        'MARKETING_VERSION' => '1.0.1', 'CURRENT_PROJECT_VERSION' => '2',
         'INFOPLIST_FILE' => plist, 'GENERATE_INFOPLIST_FILE' => 'NO',
         'CODE_SIGN_STYLE' => 'Automatic', 'CODE_SIGN_ENTITLEMENTS' => entitlement_path,
         'REGISTER_APP_GROUPS' => 'YES', 'SUPPORTED_PLATFORMS' => platforms,

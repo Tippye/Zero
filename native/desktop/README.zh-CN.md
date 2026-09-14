@@ -1,6 +1,6 @@
 # Zero Mail Windows 客户端
 
-当前版本：**1.0.0**，首个可用版本。
+当前版本：**1.0.1**。
 
 [中文首页](../../README.zh-CN.md) · [更新说明](../../CHANGELOG.zh-CN.md) · [服务端部署](../../deploy/README.zh-CN.md)
 
@@ -8,10 +8,10 @@ Electron 桌面客户端，连接自己的 Zero Compose 服务器。安装后从
 
 ## 安装与首次连接
 
-本次 1.0.0 产物位于 `native/desktop/release-windows/`：
+本次 1.0.1 产物位于 `native/desktop/release-windows/`：
 
-- `Zero Mail Setup 1.0.0.exe`：运行安装向导，可选择安装路径。
-- `Zero Mail-1.0.0-win.zip`：解压后运行 `Zero Mail.exe`。
+- `Zero Mail Setup 1.0.1.exe`：运行安装向导，可选择安装路径。
+- `Zero Mail-1.0.1-win.zip`：解压后运行 `Zero Mail.exe`。
 
 安装前请从旧客户端菜单选择“退出”，确保托盘进程也已结束。安装包不会部署或更新邮件服务器。
 

@@ -40,6 +40,24 @@ bash scripts/validate-macos.sh
 open ZeroMail.xcodeproj
 ```
 
+To create the macOS 1.0.1 universal ZIP and DMG for a GitHub Release:
+
+```sh
+cd native/apple
+bash scripts/package-macos.sh
+```
+
+The default build is unsigned. For distribution outside the Mac App Store, install a Developer ID Application certificate and matching App Group provisioning, then use automatic export signing. A saved `notarytool` Keychain profile also enables notarization and stapling:
+
+```sh
+ZERO_MAC_SIGNING=developer-id \
+ZERO_MAC_TEAM_ID=YOUR_TEAM_ID \
+ZERO_MAC_NOTARY_PROFILE=zero-mail-notary \
+bash scripts/package-macos.sh
+```
+
+Artifacts and `SHA256SUMS-1.0.1.txt` are written to `native/apple/release/`. Signing credentials and the notary profile stay in the macOS Keychain and must not be committed.
+
 The September 8 validation uses macOS and Xcode, Apple simulator UI tests, real Keychain tests and an isolated Nginx/Worker/PostgreSQL integration stack. See the validation record for exact results and evidence. Simulator or unsigned builds do not establish App Group provisioning, physical-device Handoff, APNs, TestFlight or notarization readiness. The GitHub workflow has been updated but has not been dispatched in this workspace.
 
 The existing Electron Windows client and experimental Capacitor shell remain available. Apple development should continue in this directory.

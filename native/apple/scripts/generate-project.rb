@@ -94,7 +94,7 @@ specs.each do |name, platform, minimum, suffix, platforms, family|
     config.build_settings.merge!({
       'PRODUCT_BUNDLE_IDENTIFIER' => "org.zero.mail.#{suffix}", 'PRODUCT_NAME' => name,
       'SWIFT_VERSION' => '5.0', 'SWIFT_STRICT_CONCURRENCY' => 'targeted',
-      'MARKETING_VERSION' => '0.1.0', 'CURRENT_PROJECT_VERSION' => '1',
+      'MARKETING_VERSION' => '1.0.1', 'CURRENT_PROJECT_VERSION' => '2',
       'INFOPLIST_FILE' => config.name == 'Debug' ? debug_plist : plist, 'GENERATE_INFOPLIST_FILE' => 'NO',
       'CODE_SIGN_STYLE' => 'Automatic', 'SUPPORTED_PLATFORMS' => platforms,
       'TARGETED_DEVICE_FAMILY' => family, 'ENABLE_USER_SCRIPT_SANDBOXING' => 'YES',
